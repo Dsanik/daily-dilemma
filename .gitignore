@@ -1,0 +1,24 @@
+# Зависимости
+node_modules/
+
+# Сборка
+dist/
+build/
+
+# Переменные окружения
+.env
+.env.local
+
+# Логи
+*.log
+
+# Данные бота (user_id пользователей)
+server/data.json
+
+# Системные
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/

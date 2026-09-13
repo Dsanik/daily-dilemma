@@ -1,0 +1,74 @@
+@import "tailwindcss";
+
+:root {
+  --app-bg: var(--tg-theme-bg-color, #0f0f14);
+  --app-text: var(--tg-theme-text-color, #ffffff);
+  --app-hint: var(--tg-theme-hint-color, #8b8b95);
+  --app-secondary: var(--tg-theme-secondary-bg-color, #1c1c25);
+  --app-accent: var(--tg-theme-button-color, #4a9eff);
+  --app-accent-text: var(--tg-theme-button-text-color, #ffffff);
+  --app-destructive: var(--tg-theme-destructive-text-color, #ef4444);
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--app-bg);
+  color: var(--app-text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overscroll-behavior: none;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+  box-sizing: border-box;
+}
+
+button {
+  font-family: inherit;
+}
+
+.app-shell {
+  min-height: 100vh;
+  min-height: 100dvh;
+  background-color: var(--app-bg);
+  background-image:
+    radial-gradient(circle at 15% 0%, rgba(74, 158, 255, 0.08) 0%, transparent 40%),
+    radial-gradient(circle at 85% 100%, rgba(139, 92, 246, 0.06) 0%, transparent 40%);
+  background-attachment: fixed;
+}
+
+.safe-top {
+  padding-top: max(env(safe-area-inset-top, 0px), 16px);
+}
+
+.safe-bottom {
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 16px);
+}
+
+.bottom-nav-safe {
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 8px);
+}
+
+@media (min-width: 768px) {
+  .text-adaptive-lg { font-size: 1.125rem; line-height: 1.75rem; }
+  .text-adaptive-xl { font-size: 1.5rem; line-height: 2rem; }
+  .text-adaptive-2xl { font-size: 1.875rem; line-height: 2.25rem; }
+}
+
+@media (max-height: 500px) and (orientation: landscape) {
+  .landscape-compact { padding-top: 12px; padding-bottom: 12px; }
+}
+
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
