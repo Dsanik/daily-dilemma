@@ -111,7 +111,7 @@ export function ShareButton({ result, dilemmaTitle }: ShareButtonProps) {
       <Icon
         size={16}
         className={
-          state === "generating" || state === "sharing" ? "animate-spin" : ""
+          state === "generating" || state === "sharing" ? "calm-pulse" : ""
         }
       />
       {label}

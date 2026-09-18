@@ -189,7 +189,6 @@ export function useTelegram() {
               viewport.expand()
               
               // Note: Viewport event handling would need proper SDK integration
-              console.log('Viewport initialized')
             }
             
             if (themeParams.mount.isAvailable()) {

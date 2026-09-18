@@ -3,15 +3,12 @@ import { useTelegram } from "./hooks/useTelegram";
 import { useStreak } from "./hooks/useStreak";
 import { useServerSync } from "./hooks/useServerSync";
 import { ProgressProvider } from "./contexts/ProgressContext";
-import { DilemmaPlayer } from "./components/DilemmaPlayer";
-import { ShareButton } from "./components/ShareButton";
-import { StreakBadge } from "./components/StreakBadge";
-import { CompletedToday } from "./components/CompletedToday";
+import { GameFlow } from "./components/game/GameFlow";
+import { ResultDisplay } from "./components/game/ResultDisplay";
+import { NavigationWrapper } from "./components/navigation/NavigationWrapper";
+import { Button, Card, Typography, Spacing } from "./components/ui";
+import { MentalLandscape, EnergyIndicator } from "./components/contemplative";
 import { DailyCheckIn } from "./components/DailyCheckIn";
-import { MinorityMirror } from "./components/MinorityMirror";
-import { AnonymousTribunal } from "./components/AnonymousTribunal";
-import { BottomNav, type TabId } from "./components/BottomNav";
-import { SidebarNav } from "./components/SidebarNav";
 import { ArchivePage } from "./pages/ArchivePage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { AboutPage } from "./pages/AboutPage";
@@ -34,7 +31,7 @@ import { getMinorityMirror } from "./data/minorityMirrors";
 import { getOpponentArguments } from "./data/anonymousArguments";
 import { hasSubmittedArgument, submitArgument } from "./utils/anonymousArchive";
 import { confirmDialog } from "./utils/confirmDialog";
-import type { Dilemma, DilemmaResult, PlayMode, Story } from "./types";
+import type { Dilemma, DilemmaResult, PlayMode, Story, TabId } from "./types";
 import { useProgress } from "./contexts/ProgressContext";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 
@@ -43,7 +40,7 @@ type Screen = "tab" | "playing" | "result" | "story" | "story-summary";
 function AppContent() {
   const { user, ready, isTelegram, showBackButton, hideBackButton } =
     useTelegram();
-  const { addCoins, hasItem, consumeItem } = useProgress();
+  const { addCoins, hasItem, consumeItem, state, restoreEnergy } = useProgress();
   // "Заморозка стрика" из инвентаря магазина защищает именно этот, видимый
   // пользователю стрик (а не отдельный счётчик визитов внутри ProgressContext).
   const hasStreakFreeze = useCallback(
@@ -54,11 +51,11 @@ function AppContent() {
     () => consumeItem("streak_freeze"),
     [consumeItem],
   );
-  const { progress, setProgress, countdown } = useStreak(
+  const { progress, setProgress } = useStreak(
     hasStreakFreeze,
     consumeStreakFreeze,
   );
-  const { serverStreak, markCompleted } = useServerSync(
+  const { markCompleted } = useServerSync(
     user?.first_name,
     user?.username,
   );
@@ -124,7 +121,9 @@ function AppContent() {
   if (!ready) {
     return (
       <div className="app-shell flex min-h-screen items-center justify-center">
-        <div className="text-sm opacity-50">Загрузка…</div>
+        <Typography variant="body" color="muted">
+          Загрузка…
+        </Typography>
       </div>
     );
   }
@@ -135,8 +134,8 @@ function AppContent() {
     setScreen("playing");
   }
 
-  function handleStartImpulse() {
-    setPlayMode("impulse");
+  function handleStartContemplative() {
+    setPlayMode("contemplative");
     setScreen("playing");
   }
 
@@ -164,7 +163,7 @@ function AppContent() {
     const hadCompletedSlugBefore = Boolean(
       progress.completedDilemmas[activeDilemma.slug],
     );
-    const hadImpulsedSlugBefore = progress.impulseDilemmas.includes(
+    const hadContemplatedBefore = progress.contemplativeDilemmas.includes(
       activeDilemma.slug,
     );
     const isToday = activeDilemma.slug === todayDilemma.slug;
@@ -202,8 +201,8 @@ function AppContent() {
     // Повторное прохождение уже пройденной дилеммы монет не даёт —
     // иначе их можно копить бесконечно, просто листая архив по кругу.
     let earned = 0;
-    if (mode === "impulse") {
-      earned = hadImpulsedSlugBefore ? 0 : 20;
+    if (mode === "contemplative") {
+      earned = hadContemplatedBefore ? 0 : 30; // Higher reward for contemplative mode
     } else if (isToday && !wasCompletedToday) {
       earned = 25;
     } else if (!hadCompletedSlugBefore) {
@@ -274,441 +273,172 @@ function AppContent() {
     ? getOpponentArguments(activeDilemma.slug, result.your_choice)
     : [];
 
-  const displayStreak = Math.max(
-    progress.currentStreak,
-    serverStreak?.streak ?? 0,
-  );
-  const displayLongest = Math.max(progress.longestStreak, displayStreak);
 
   return (
-    <div className="app-shell">
-      <div className="mx-auto flex w-full max-w-7xl md:gap-8 md:px-6">
-        <SidebarNav activeTab={activeTab} onTabChange={handleTabChange} />
+    <NavigationWrapper
+      activeTab={activeTab}
+      onTabChange={handleTabChange}
+      showBottomNav={screen === "tab"}
+    >
+      {screen === "tab" && activeTab === "today" && (
+        <div className="content-spacing-lg">
+          <header className="text-center md:hidden">
+            <Typography variant="h1">Дилемма дня</Typography>
+            <Spacing size="sm" />
+            <Typography variant="body" color="muted">
+              Пространство для осознанных решений
+            </Typography>
+          </header>
+          
+          <DailyCheckIn />
 
-        <main className="flex min-h-screen w-full flex-1 flex-col">
-          <div className="safe-top mx-auto flex w-full max-w-md flex-col px-4 pb-28 pt-4 md:max-w-3xl md:pb-10 md:pt-8 md:text-[15px] lg:max-w-4xl">
-            {screen === "tab" && activeTab === "today" && (
-              <header className="mb-6 flex items-start justify-between gap-3 md:hidden">
-                <div className="flex min-w-0 flex-col">
-                  <h1 className="text-2xl font-bold">Дилемма дня</h1>
-                  <p className="mt-1 text-sm opacity-60">
-                    Один выбор в день. Живая статистика.
-                  </p>
-                </div>
-                <StreakBadge
-                  streak={displayStreak}
-                  longestStreak={displayLongest}
-                />
-              </header>
-            )}
+          <EnergyIndicator 
+            energy={state.contemplativeEnergy} 
+            maxEnergy={100}
+            onRestore={() => restoreEnergy()}
+          />
 
-            {screen === "tab" && activeTab === "today" && (
-              <div className="mb-4">
-                <DailyCheckIn />
-              </div>
-            )}
+          {!completedToday ? (
+            <div className="content-spacing">
+              <Card>
+                <Typography variant="caption" color="muted" className="uppercase tracking-wide">
+                  {user
+                    ? `Привет, ${user.first_name ?? "гость"}`
+                    : "Отладка в браузере"}
+                </Typography>
+                <Spacing size="md" />
+                <Typography variant="h2">{todayDilemma.title}</Typography>
+                <Spacing size="sm" />
+                <Typography variant="body" color="muted">
+                  {todayDilemma.intro}
+                </Typography>
+              </Card>
 
-            {screen === "tab" && activeTab === "today" && !completedToday && (
-              <div className="flex flex-col gap-4">
-                <div
-                  className="rounded-2xl p-5"
-                  style={{ backgroundColor: "var(--app-secondary)" }}
-                >
-                  <p className="text-[10px] font-semibold uppercase tracking-wide opacity-50">
-                    {user
-                      ? `Привет, ${user.first_name ?? "гость"}`
-                      : "Отладка в браузере"}
-                  </p>
-                  <p className="mt-3 text-base font-semibold leading-snug">
-                    {todayDilemma.title}
-                  </p>
-                  <p className="mt-2 text-sm leading-relaxed opacity-70">
-                    {todayDilemma.intro}
-                  </p>
-                </div>
+              <Button 
+                size="lg" 
+                onClick={() => handleStartToday("normal")}
+                className="w-full"
+              >
+                Пройти дилемму
+              </Button>
 
-                <button
-                  type="button"
-                  onClick={() => handleStartToday("normal")}
-                  className="w-full rounded-2xl py-3.5 text-sm font-semibold transition-opacity active:opacity-80"
-                  style={{
-                    backgroundColor: "var(--app-accent)",
-                    color: "var(--app-accent-text)",
-                  }}
-                >
-                  Пройти дилемму
-                </button>
+              <Button 
+                variant="secondary" 
+                size="lg" 
+                onClick={() => handleStartToday("contemplative")}
+                className="w-full"
+              >
+                🧘 Пройти в режиме созерцания
+              </Button>
 
-                <button
-                  type="button"
-                  onClick={() => handleStartToday("impulse")}
-                  className="w-full rounded-2xl py-3 text-sm font-semibold transition-opacity active:opacity-80"
-                  style={{
-                    backgroundColor: "var(--app-secondary)",
-                    color: "var(--app-text)",
-                  }}
-                >
-                  ⚡ Пройти в режиме импульса
-                </button>
+              <Typography variant="small" color="muted" className="text-center">
+                {isTelegram ? "Telegram Mini App" : "Веб-режим (отладка)"}
+              </Typography>
+            </div>
+          ) : (
 
-                <p className="text-center text-[11px] opacity-40">
-                  {isTelegram ? "Telegram Mini App" : "Веб-режим (отладка)"}
-                </p>
-              </div>
-            )}
+            <div className="content-spacing">
+              <MentalLandscape 
+                decisions={[]} // Will be populated from progress data
+              />
 
-            {screen === "tab" && activeTab === "today" && completedToday && (
-              <div className="flex flex-col gap-4">
-                <CompletedToday countdown={countdown} />
-
-                {result && (
-                  <>
-                    <div
-                      className="rounded-2xl p-5 text-center"
-                      style={{ backgroundColor: "var(--app-secondary)" }}
-                    >
-                      <p className="text-[10px] font-semibold uppercase tracking-wide opacity-50">
-                        Твой выбор
-                      </p>
-                      <p className="mt-2 text-lg font-bold">
-                        {result.your_outcome}
-                      </p>
-                      <p className="mt-3 text-sm opacity-70">
-                        {result.match_label}
-                      </p>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={handleStartImpulse}
-                      className="w-full rounded-2xl py-3 text-sm font-semibold transition-opacity active:opacity-80"
-                      style={{
-                        backgroundColor: "var(--app-secondary)",
-                        color: "var(--app-text)",
-                      }}
-                    >
-                      ⚡ Пройти в режиме импульса
-                    </button>
-
-                    {showMirror && mirror && (
-                      <MinorityMirror
-                        mirror={mirror}
-                        percent={result.match_percent}
-                      />
+              {result && (
+                <>
+                  <Card>
+                    <Typography variant="caption" color="muted" className="uppercase tracking-wide text-center">
+                      Твой выбор
+                    </Typography>
+                    <Spacing size="sm" />
+                    <Typography variant="h2" className="text-center">
+                      {result.your_outcome}
+                    </Typography>
+                    {echo && (
+                      <>
+                        <Spacing size="md" />
+                        <Typography variant="body" color="muted" className="text-center">
+                          {result.match_label}
+                        </Typography>
+                      </>
                     )}
+                  </Card>
 
-                    <div
-                      className="rounded-2xl p-4"
-                      style={{ backgroundColor: "var(--app-secondary)" }}
-                    >
-                      <p className="mb-3 text-[10px] font-semibold uppercase tracking-wide opacity-50">
-                        Как поступили другие
-                      </p>
-                      <div className="flex flex-col gap-2.5">
-                        {Object.entries(result.stats)
-                          .sort((a, b) => b[1] - a[1])
-                          .map(([optionId, count]) => {
-                            const label =
-                              todayDilemma.scenario.final_stats_map[optionId] ??
-                              optionId;
-                            const percent = Math.round(
-                              (count / result.total_players) * 100,
-                            );
-                            const isYours = optionId === result.your_choice;
-                            return (
-                              <div
-                                key={optionId}
-                                className="flex flex-col gap-1"
-                              >
-                                <div className="flex items-baseline justify-between">
-                                  <span
-                                    className={`text-xs ${
-                                      isYours ? "font-semibold" : "opacity-70"
-                                    }`}
-                                  >
-                                    {label}
-                                    {isYours ? " · ты" : ""}
-                                  </span>
-                                  <span
-                                    className="text-xs font-bold tabular-nums"
-                                    style={{
-                                      color: isYours
-                                        ? "var(--app-accent)"
-                                        : undefined,
-                                    }}
-                                  >
-                                    {percent}%
-                                  </span>
-                                </div>
-                                <div
-                                  className="h-1.5 w-full overflow-hidden rounded-full"
-                                  style={{
-                                    backgroundColor: "rgba(128,128,128,0.15)",
-                                  }}
-                                >
-                                  <div
-                                    className="h-full rounded-full transition-all"
-                                    style={{
-                                      width: `${percent}%`,
-                                      backgroundColor: isYours
-                                        ? "var(--app-accent)"
-                                        : "rgba(128,128,128,0.6)",
-                                    }}
-                                  />
-                                </div>
-                              </div>
-                            );
-                          })}
-                      </div>
-                    </div>
+                  <Button variant="secondary" size="lg" onClick={handleStartContemplative} className="w-full">
+                    🧘 Пройти в режиме созерцания
+                  </Button>
+                </>
+              )}
 
-                    <AnonymousTribunal
-                      opponentArguments={opponentArguments}
-                      onSubmitArgument={handleSubmitArgument}
-                      alreadySubmitted={argSubmitted}
-                    />
-
-                    <ShareButton
-                      result={result}
-                      dilemmaTitle={todayDilemma.title}
-                    />
-                  </>
-                )}
-
-                <button
-                  type="button"
-                  onClick={handleReset}
-                  className="mt-2 w-full rounded-2xl py-3 text-xs font-semibold opacity-40 transition-opacity active:opacity-60"
-                  style={{
-                    backgroundColor: "transparent",
-                    color: "var(--app-text)",
-                  }}
-                >
-                  Сбросить прогресс (для теста)
-                </button>
-              </div>
-            )}
-
-            {screen === "tab" && activeTab === "archive" && (
-              <ArchivePage onOpenDilemma={handleOpenFromArchive} />
-            )}
-
-            {screen === "tab" && activeTab === "stories" && (
-              <StoriesPage onOpenStory={handleOpenStory} />
-            )}
-
-            {screen === "tab" && activeTab === "profile" && <ProfilePage />}
-
-            {screen === "tab" && activeTab === "about" && <AboutPage />}
-
-            {screen === "playing" && (
-              <DilemmaPlayer
-                dilemma={activeDilemma}
-                mode={playMode}
-                onComplete={handleComplete}
-                onClose={handleBackToTabs}
-                hasSecondChance={() => hasItem("second_chance")}
-                consumeSecondChance={() => consumeItem("second_chance")}
-              />
-            )}
-
-            {screen === "story" && activeStory && (
-              <StoryPlayer
-                story={activeStory}
-                onClose={handleCloseStory}
-                onShowSummary={() => setScreen("story-summary")}
-              />
-            )}
-
-            {screen === "story-summary" && activeStory && (
-              <StorySummary
-                story={activeStory}
-                onClose={() => setScreen("story")}
-                onReset={async () => {
-                  const confirmed = await confirmDialog(
-                    "Сбросить прогресс этой истории?",
-                  );
-                  if (!confirmed) return;
-                  localStorage.removeItem(
-                    `daily-dilemma-story-${activeStory.slug}`,
-                  );
-                  setScreen("story");
-                  window.location.reload();
-                }}
-              />
-            )}
-
-            {screen === "result" && result && (
-              <div className="flex flex-col gap-4">
-                {coinsEarned > 0 && (
-                  <div
-                    className="flex items-center justify-center gap-1.5 rounded-2xl p-3 text-sm font-semibold"
-                    style={{
-                      backgroundColor: "rgba(250, 204, 21, 0.15)",
-                      color: "#b45309",
-                    }}
-                  >
-                    🪙 +{coinsEarned} монет
-                  </div>
-                )}
-
-                {echo && (
-                  <div
-                    className="flex flex-col gap-1.5 rounded-2xl p-4"
-                    style={{
-                      backgroundColor: "rgba(74, 158, 255, 0.08)",
-                      border: "1px solid rgba(74, 158, 255, 0.25)",
-                    }}
-                  >
-                    <span
-                      className="text-[10px] font-bold uppercase tracking-wide"
-                      style={{ color: "#4a9eff" }}
-                    >
-                      🔁 Эхо · {echo.daysAgo} дн. назад
-                    </span>
-                    <p className="text-sm leading-relaxed opacity-90">
-                      Ты уже отвечал на это. Тогда:{" "}
-                      <strong>«{echo.pastLabel}»</strong>. Сегодня:{" "}
-                      <strong>«{echo.currentLabel}»</strong>.
-                    </p>
-                    <p className="text-xs opacity-60">
-                      {echo.sameChoice
-                        ? "Выбор не изменился."
-                        : "Ты поступил иначе, чем в прошлый раз."}
-                    </p>
-                  </div>
-                )}
-
-                {resultMode === "impulse" && (
-                  <div
-                    className="flex items-center gap-2 rounded-2xl p-3"
-                    style={{ backgroundColor: "rgba(245, 158, 11, 0.12)" }}
-                  >
-                    <span
-                      className="text-[11px] font-semibold uppercase tracking-wide"
-                      style={{ color: "#f59e0b" }}
-                    >
-                      ⚡ Импульсный режим
-                    </span>
-                  </div>
-                )}
-
-                <div
-                  className="rounded-2xl p-5 text-center"
-                  style={{ backgroundColor: "var(--app-secondary)" }}
-                >
-                  <p className="text-[10px] font-semibold uppercase tracking-wide opacity-50">
-                    Твой выбор
-                  </p>
-                  <p className="mt-2 text-lg font-bold">
-                    {result.your_outcome}
-                  </p>
-                  <p className="mt-3 text-sm opacity-70">
-                    {result.match_label}
-                  </p>
-                </div>
-
-                {showMirror && mirror && (
-                  <MinorityMirror
-                    mirror={mirror}
-                    percent={result.match_percent}
-                  />
-                )}
-
-                <div
-                  className="rounded-2xl p-4"
-                  style={{ backgroundColor: "var(--app-secondary)" }}
-                >
-                  <p className="mb-3 text-[10px] font-semibold uppercase tracking-wide opacity-50">
-                    Как поступили другие
-                  </p>
-                  <div className="flex flex-col gap-2.5">
-                    {Object.entries(result.stats)
-                      .sort((a, b) => b[1] - a[1])
-                      .map(([optionId, count]) => {
-                        const label =
-                          activeDilemma.scenario.final_stats_map[optionId] ??
-                          optionId;
-                        const percent = Math.round(
-                          (count / result.total_players) * 100,
-                        );
-                        const isYours = optionId === result.your_choice;
-                        return (
-                          <div key={optionId} className="flex flex-col gap-1">
-                            <div className="flex items-baseline justify-between">
-                              <span
-                                className={`text-xs ${
-                                  isYours ? "font-semibold" : "opacity-70"
-                                }`}
-                              >
-                                {label}
-                                {isYours ? " · ты" : ""}
-                              </span>
-                              <span
-                                className="text-xs font-bold tabular-nums"
-                                style={{
-                                  color: isYours
-                                    ? "var(--app-accent)"
-                                    : undefined,
-                                }}
-                              >
-                                {percent}%
-                              </span>
-                            </div>
-                            <div
-                              className="h-1.5 w-full overflow-hidden rounded-full"
-                              style={{
-                                backgroundColor: "rgba(128,128,128,0.15)",
-                              }}
-                            >
-                              <div
-                                className="h-full rounded-full transition-all"
-                                style={{
-                                  width: `${percent}%`,
-                                  backgroundColor: isYours
-                                    ? "var(--app-accent)"
-                                    : "rgba(128,128,128,0.6)",
-                                }}
-                              />
-                            </div>
-                          </div>
-                        );
-                      })}
-                  </div>
-                </div>
-
-                <AnonymousTribunal
-                  opponentArguments={opponentArguments}
-                  onSubmitArgument={handleSubmitArgument}
-                  alreadySubmitted={argSubmitted}
-                />
-
-                <ShareButton
-                  result={result}
-                  dilemmaTitle={activeDilemma.title}
-                />
-
-                <button
-                  type="button"
-                  onClick={handleBackToTabs}
-                  className="w-full rounded-2xl py-3 text-sm font-semibold transition-opacity active:opacity-80"
-                  style={{
-                    backgroundColor: "var(--app-secondary)",
-                    color: "var(--app-text)",
-                  }}
-                >
-                  На главную
-                </button>
-              </div>
-            )}
-          </div>
-        </main>
-      </div>
-
-      {screen === "tab" && (
-        <BottomNav activeTab={activeTab} onTabChange={handleTabChange} />
+              <Button variant="ghost" size="sm" onClick={handleReset} className="w-full opacity-60">
+                Сбросить прогресс (для теста)  
+              </Button>
+            </div>
+          )}
+        </div>
       )}
-    </div>
+
+      {screen === "tab" && activeTab === "archive" && (
+        <ArchivePage onOpenDilemma={handleOpenFromArchive} />
+      )}
+
+      {screen === "tab" && activeTab === "stories" && (
+        <StoriesPage onOpenStory={handleOpenStory} />
+      )}
+
+      {screen === "tab" && activeTab === "profile" && <ProfilePage />}
+
+      {screen === "tab" && activeTab === "about" && <AboutPage />}
+
+      {screen === "playing" && (
+        <GameFlow
+          dilemma={activeDilemma}
+          mode={playMode}
+          onComplete={handleComplete}
+          onClose={handleBackToTabs}
+        />
+      )}
+
+      {screen === "story" && activeStory && (
+        <StoryPlayer
+          story={activeStory}
+          onClose={handleCloseStory}
+          onShowSummary={() => setScreen("story-summary")}
+        />
+      )}
+
+      {screen === "story-summary" && activeStory && (
+        <StorySummary
+          story={activeStory}
+          onClose={() => setScreen("story")}
+          onReset={async () => {
+            const confirmed = await confirmDialog(
+              "Сбросить прогресс этой истории?",
+            );
+            if (!confirmed) return;
+            localStorage.removeItem(
+              `daily-dilemma-story-${activeStory.slug}`,
+            );
+            setScreen("story");
+            window.location.reload();
+          }}
+        />
+      )}
+
+      {screen === "result" && result && (
+        <ResultDisplay
+          dilemma={activeDilemma}
+          result={result}
+          mode={resultMode}
+          coinsEarned={coinsEarned}
+          echo={echo}
+          minorityMirror={showMirror && mirror ? mirror : undefined}
+          opponentArguments={opponentArguments}
+          argSubmitted={argSubmitted}
+          onSubmitArgument={handleSubmitArgument}
+          onBackToTabs={handleBackToTabs}
+        />
+      )}
+
+    </NavigationWrapper>
   );
 }
 

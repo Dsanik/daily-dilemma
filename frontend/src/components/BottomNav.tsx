@@ -24,13 +24,13 @@ interface BottomNavProps {
 export function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
   return (
     <nav
-      className="bottom-nav-safe fixed bottom-0 left-0 right-0 z-40 border-t md:hidden"
+      className="bottom-nav-safe fixed bottom-0 left-0 right-0 z-40 border-t md:hidden backdrop-blur-sm"
       style={{
         backgroundColor: 'var(--app-bg)',
-        borderColor: 'rgba(128,128,128,0.15)',
+        borderColor: 'var(--calm-border)',
       }}
     >
-      <div className="mx-auto flex w-full max-w-md items-center justify-around py-2">
+      <div className="mx-auto flex w-full max-w-md items-center justify-around py-3">
         {NAV_TABS.map((tab) => {
           const Icon = tab.icon
           const isActive = activeTab === tab.id
@@ -39,14 +39,17 @@ export function BottomNav({ activeTab, onTabChange }: BottomNavProps) {
               key={tab.id}
               type="button"
               onClick={() => onTabChange(tab.id)}
-              className="flex flex-col items-center gap-0.5 px-1 py-1 transition-colors"
+              className="flex flex-col items-center gap-1 px-2 py-2 calm-transition calm-scale rounded-xl"
               style={{
                 color: isActive ? 'var(--app-accent)' : 'var(--app-hint)',
               }}
               aria-label={tab.label}
             >
-              <Icon size={20} strokeWidth={isActive ? 2.5 : 1.8} />
-              <span className="whitespace-nowrap text-[9px] font-medium">
+              <Icon size={20} strokeWidth={isActive ? 2.2 : 1.6} />
+              <span 
+                className="whitespace-nowrap font-medium"
+                style={{ fontSize: 'clamp(0.625rem, 1.5vw, 0.75rem)' }}
+              >
                 {tab.label}
               </span>
             </button>

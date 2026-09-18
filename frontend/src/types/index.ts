@@ -8,13 +8,7 @@ export interface TelegramUser {
 
 // ─── Дилеммы дня ───
 
-export type Tension = 'calm' | 'tense' | 'critical'
-
-export const TENSION_SECONDS: Record<Tension, number> = {
-  calm: 12,
-  tense: 8,
-  critical: 5,
-}
+// Tension removed - no more stressful mechanics
 
 export type NodeType =
   | 'text'
@@ -62,7 +56,6 @@ export interface SliderStep {
 export interface SliderNode {
   type: 'slider'
   text: string
-  tension?: Tension
   leftLabel: string
   rightLabel: string
   leftColor: string
@@ -89,7 +82,6 @@ export interface TextNode {
 export interface ChoiceNode {
   type: 'choice'
   text: string
-  tension?: Tension
   options: ChoiceOption[]
 }
 
@@ -155,7 +147,7 @@ export interface Dilemma {
   }
 }
 
-export type PlayMode = 'normal' | 'impulse'
+export type PlayMode = 'normal' | 'contemplative'
 
 export interface ChoiceRecord {
   node_id: string
@@ -226,8 +218,7 @@ export interface ProgressState {
   streak: number
   longestStreak: number
   lastVisitDate: string
-  hearts: number
-  heartsLastRefill: number
+  contemplativeEnergy: number // Энергия размышлений - восполняется каждое размышление
   claimedRewards: number[]
   weeklyXp: number
   weekStart: string
@@ -237,11 +228,18 @@ export interface ProgressState {
 
 export interface DailyProgress {
   completedDilemmas: Record<string, string>
-  impulseDilemmas: string[]
+  contemplativeDilemmas: string[]
   playedDates: string[]
+  mentalLandscapeData: Array<{
+    dilemmaId: string
+    choice: string
+    category: string
+    values: string[]
+  }>
+  lastPlayedDate: string | null
   currentStreak: number
   longestStreak: number
-  lastPlayedDate: string | null
+  impulseDilemmas: string[]
 }
 
 export type RewardType = 'xp' | 'coins' | 'heart' | 'mega'
@@ -315,3 +313,5 @@ export interface League {
   minXp: number
   nextXp: number | null
 }
+
+export type TabId = 'today' | 'archive' | 'stories' | 'profile' | 'about'

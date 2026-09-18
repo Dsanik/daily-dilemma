@@ -72,7 +72,6 @@ export const wrongErrorStory: Story = {
         choice_1: {
           type: 'choice',
           text: 'Твой ответ?',
-          tension: 'critical',
           options: [
             {
               id: 'cover',
@@ -208,7 +207,6 @@ export const wrongErrorStory: Story = {
         common_choice: {
           type: 'choice',
           text: 'Что делаешь со вторым сбоем?',
-          tension: 'tense',
           options: [
             {
               id: 'escalate',
@@ -327,7 +325,6 @@ export const wrongErrorStory: Story = {
         branch_A_choice: {
           type: 'choice',
           text: 'Что делаешь?',
-          tension: 'critical',
           options: [
             {
               id: 'guarantee',
@@ -382,7 +379,6 @@ export const wrongErrorStory: Story = {
         branch_B_choice: {
           type: 'choice',
           text: 'Что отвечаешь?',
-          tension: 'critical',
           options: [
             {
               id: 'defend',
@@ -437,7 +433,6 @@ export const wrongErrorStory: Story = {
         branch_V_choice: {
           type: 'choice',
           text: 'Что делаешь?',
-          tension: 'tense',
           options: [
             {
               id: 'support',
@@ -574,7 +569,6 @@ export const wrongErrorStory: Story = {
         choice_final: {
           type: 'choice',
           text: 'Твой ответ?',
-          tension: 'critical',
           options: [
             {
               id: 'tell_all',

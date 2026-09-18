@@ -4,11 +4,13 @@ const STORAGE_KEY = 'daily-dilemma-progress-v1'
 
 const DEFAULT: DailyProgress = {
   completedDilemmas: {},
-  impulseDilemmas: [],
+  contemplativeDilemmas: [],
   playedDates: [],
+  mentalLandscapeData: [],
+  lastPlayedDate: null,
   currentStreak: 0,
   longestStreak: 0,
-  lastPlayedDate: null,
+  impulseDilemmas: [],
 }
 
 export function todayKey(): string {
@@ -48,13 +50,14 @@ export function markDilemmaCompleted(
   slug: string,
   mode: PlayMode = 'normal',
   isToday: boolean = true,
+  finalOption?: string,
 ): DailyProgress {
   const today = todayKey()
   const progress = loadProgress()
 
-  // Импульсные прохождения записываем всегда
-  if (mode === 'impulse' && !progress.impulseDilemmas.includes(slug)) {
-    progress.impulseDilemmas.push(slug)
+  // Созерцательные прохождения записываем всегда  
+  if (mode === 'contemplative' && !progress.contemplativeDilemmas.includes(slug)) {
+    progress.contemplativeDilemmas.push(slug)
   }
 
   // Дневной прогресс — только при первом прохождении в обычном режиме
@@ -78,23 +81,55 @@ export function markDilemmaCompleted(
       progress.playedDates.push(today)
       progress.playedDates.sort()
     }
+    
+    progress.lastPlayedDate = today
+  }
 
-    if (!progress.lastPlayedDate) {
+  // Сохраняем данные для ментального ландшафта
+  if ((mode === 'contemplative' || mode === 'normal') && finalOption) {
+    progress.mentalLandscapeData.push({
+      dilemmaId: slug,
+      choice: finalOption,
+      category: 'general', // TODO: определять категорию из дилеммы
+      values: [] // TODO: определять ценности из выбора
+    })
+    
+    // Ограничиваем размер данных (последние 50 решений)
+    if (progress.mentalLandscapeData.length > 50) {
+      progress.mentalLandscapeData = progress.mentalLandscapeData.slice(-50)
+    }
+  }
+
+  // Трекинг импульсных дилемм для достижений
+  if (mode === 'contemplative' && !progress.impulseDilemmas.includes(slug)) {
+    progress.impulseDilemmas.push(slug)
+  }
+
+  // Обновление стрика (только для сегодняшних дилемм)
+  if (isToday && mode === 'normal') {
+    const currentDate = todayKey()
+    const lastDate = progress.lastPlayedDate
+    
+    if (!lastDate) {
+      // Первый раз играет
       progress.currentStreak = 1
-    } else if (progress.lastPlayedDate !== today) {
-      const gap = daysBetween(progress.lastPlayedDate, today)
+    } else {
+      const gap = daysBetween(lastDate, currentDate)
       if (gap === 1) {
+        // Продолжение стрика
         progress.currentStreak += 1
-      } else if (gap > 1) {
+      } else if (gap === 0) {
+        // Тот же день - стрик не изменяется
+      } else {
+        // Пропуск дня - начинаем заново
         progress.currentStreak = 1
       }
     }
 
-    progress.lastPlayedDate = today
-    progress.longestStreak = Math.max(
-      progress.longestStreak,
-      progress.currentStreak,
-    )
+    // Обновляем рекорд
+    if (progress.currentStreak > progress.longestStreak) {
+      progress.longestStreak = progress.currentStreak
+    }
   }
 
   save(progress)

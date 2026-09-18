@@ -8,19 +8,35 @@ interface SidebarNavProps {
 export function SidebarNav({ activeTab, onTabChange }: SidebarNavProps) {
   return (
     <aside
-      className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col gap-6 border-r p-6 safe-top md:flex"
+      className="sticky top-0 hidden h-screen w-72 shrink-0 flex-col gap-8 border-r p-8 safe-top md:flex"
       style={{
-        borderColor: 'rgba(128,128,128,0.15)',
+        borderColor: 'var(--calm-border)',
       }}
     >
-      <div className="flex flex-col gap-1">
-        <h1 className="text-xl font-bold">Дилемма дня</h1>
-        <p className="text-xs opacity-60">
+      <div className="flex flex-col gap-2">
+        <h1 
+          className="font-bold"
+          style={{ 
+            fontSize: 'clamp(1.25rem, 2.5vw, 1.5rem)', 
+            lineHeight: '1.3',
+            color: 'var(--app-text)'
+          }}
+        >
+          Дилемма дня
+        </h1>
+        <p 
+          className="opacity-70"
+          style={{ 
+            fontSize: 'clamp(0.75rem, 1.5vw, 0.875rem)', 
+            lineHeight: '1.5',
+            color: 'var(--app-hint)'
+          }}
+        >
           Один выбор в день. Живая статистика.
         </p>
       </div>
 
-      <nav className="flex flex-col gap-1">
+      <nav className="flex flex-col gap-2">
         {NAV_TABS.map((tab) => {
           const Icon = tab.icon
           const isActive = activeTab === tab.id
@@ -29,15 +45,16 @@ export function SidebarNav({ activeTab, onTabChange }: SidebarNavProps) {
               key={tab.id}
               type="button"
               onClick={() => onTabChange(tab.id)}
-              className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-colors"
+              className="flex items-center gap-4 rounded-2xl px-4 py-3 text-left font-medium calm-transition calm-scale"
               style={{
                 backgroundColor: isActive
-                  ? 'rgba(74, 158, 255, 0.12)'
+                  ? 'var(--calm-surface)'
                   : 'transparent',
                 color: isActive ? 'var(--app-accent)' : 'var(--app-text)',
+                fontSize: 'clamp(0.875rem, 1.5vw, 1rem)'
               }}
             >
-              <Icon size={18} strokeWidth={isActive ? 2.5 : 1.8} />
+              <Icon size={20} strokeWidth={isActive ? 2.2 : 1.6} />
               <span>{tab.label}</span>
             </button>
           )
@@ -45,7 +62,14 @@ export function SidebarNav({ activeTab, onTabChange }: SidebarNavProps) {
       </nav>
 
       <div className="mt-auto">
-        <p className="text-[10px] opacity-40">
+        <p 
+          className="opacity-50"
+          style={{ 
+            fontSize: 'clamp(0.625rem, 1.25vw, 0.75rem)', 
+            lineHeight: '1.4',
+            color: 'var(--app-hint)'
+          }}
+        >
           v1.0 · Прогресс хранится локально; в Telegram стрик также
           синхронизируется с сервером
         </p>

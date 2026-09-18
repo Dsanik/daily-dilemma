@@ -15,7 +15,6 @@ export async function shareImage(
   // ИСПРАВЛЕНИЕ 1: Для Telegram Mini App на мобильных устройствах используем публичный URL
   if (isTelegramWebView && isMobile) {
     try {
-      console.log('Mobile Telegram detected, uploading image to server...');
       
       // Загружаем изображение на сервер и получаем публичный HTTPS URL
       const uploadResult = await api.uploadShareImage(blob, filename);
@@ -25,7 +24,6 @@ export async function shareImage(
       }
 
       const publicUrl = uploadResult.url;
-      console.log('Image uploaded, public URL:', publicUrl);
 
       // Пробуем Telegram Web App API с публичным URL
       const webApp = window.Telegram?.WebApp;
@@ -37,14 +35,12 @@ export async function shareImage(
         if (typeof webApp.shareToStory === 'function' && 
             typeof webApp.isVersionAtLeast === 'function' && 
             webApp.isVersionAtLeast('7.8')) {
-          console.log('Using Telegram shareToStory API');
           webApp.shareToStory(publicUrl);
           return { method: "telegram" };
         }
 
         // 1b. openTelegramLink для обычного шеринга
         if (typeof webApp.openTelegramLink === 'function') {
-          console.log('Using Telegram openTelegramLink API');
           const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(publicUrl)}&text=${encodeURIComponent('Мой результат в Дилемме дня!')}`;
           webApp.openTelegramLink(shareUrl);
           return { method: "telegram" };
@@ -52,7 +48,6 @@ export async function shareImage(
 
         // 1c. openLink как fallback
         if (typeof webApp.openLink === 'function') {
-          console.log('Using Telegram openLink API');
           const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(publicUrl)}&text=${encodeURIComponent('Мой результат в Дилемме дня!')}`;
           webApp.openLink(shareUrl);
           return { method: "telegram" };
@@ -60,7 +55,6 @@ export async function shareImage(
       }
 
       // Fallback: открываем изображение в новом окне для ручного сохранения
-      console.log('Using fallback: opening image in new window');
       window.open(publicUrl, '_blank');
       return { method: "preview" };
 

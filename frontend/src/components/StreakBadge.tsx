@@ -55,7 +55,7 @@ export function StreakBadge({ streak, longestStreak }: StreakBadgeProps) {
         size={18}
         color={color}
         fill={!isCold ? color : "none"}
-        className={isOnFire ? "animate-pulse" : ""}
+        className=""
       />
       <span className="text-sm font-bold tabular-nums" style={{ color }}>
         {streak}

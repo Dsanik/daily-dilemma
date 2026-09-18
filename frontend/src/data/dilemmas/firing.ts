@@ -23,7 +23,6 @@ export const firingDilemma: Dilemma = {
       choice_1: {
         type: 'slider',
         text: 'Насколько жёстко ты готов поступить? Двигай ползунок — увидишь, как меняется твоё решение.',
-        tension: 'critical',
         leftLabel: 'Дать шанс исправиться',
         rightLabel: 'Уволить публично',
         leftColor: '#4a9eff',

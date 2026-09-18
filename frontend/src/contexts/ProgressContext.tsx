@@ -20,8 +20,8 @@ import { SHOP_ITEMS } from '../data/shopItems'
 // дилеммы) писали в одну и ту же ячейку localStorage с несовместимыми
 // форматами и постоянно затирали данные друг друга при каждом сохранении.
 const STORAGE_KEY = 'daily-dilemma-gamestate-v1'
-export const MAX_HEARTS = 5
-export const HEART_REFILL_MS = 30 * 60 * 1000
+// Заменяем стрессовую систему Hearts на созерцательную энергию
+export const CONTEMPLATIVE_ENERGY_MAX = 100 // Максимальная энергия размышлений
 
 const DEFAULT_INVENTORY: Inventory = {
   streakFreezes: 0,
@@ -35,8 +35,7 @@ const DEFAULT_STATE: ProgressState = {
   streak: 0,
   longestStreak: 0,
   lastVisitDate: '',
-  hearts: MAX_HEARTS,
-  heartsLastRefill: Date.now(),
+  contemplativeEnergy: CONTEMPLATIVE_ENERGY_MAX, // Энергия размышлений - неограниченный ресурс
   claimedRewards: [],
   weeklyXp: 0,
   weekStart: '',
@@ -70,7 +69,7 @@ function loadState(): ProgressState {
         ...DEFAULT_STATE,
         lastVisitDate: todayStr(),
         weekStart: getWeekStart(),
-        heartsLastRefill: Date.now(),
+        contemplativeEnergy: CONTEMPLATIVE_ENERGY_MAX,
       }
     }
     const parsed = JSON.parse(raw) as Partial<ProgressState>
@@ -78,13 +77,15 @@ function loadState(): ProgressState {
       ...DEFAULT_STATE,
       ...parsed,
       inventory: { ...DEFAULT_INVENTORY, ...(parsed.inventory ?? {}) },
+      // Обеспечиваем максимальную энергию при каждой загрузке
+      contemplativeEnergy: CONTEMPLATIVE_ENERGY_MAX,
     }
   } catch {
     return {
       ...DEFAULT_STATE,
       lastVisitDate: todayStr(),
       weekStart: getWeekStart(),
-      heartsLastRefill: Date.now(),
+      contemplativeEnergy: CONTEMPLATIVE_ENERGY_MAX,
     }
   }
 }
@@ -102,8 +103,7 @@ interface ProgressContextValue {
   addXp: (amount: number) => void
   addCoins: (amount: number) => void
   spendCoins: (amount: number) => boolean
-  loseHeart: () => void
-  refillHearts: () => void
+  restoreEnergy: (amount?: number) => void // Восстанавливает энергию размышлений
   claimReward: (day: number) => void
   resetProgress: () => void
   canClaimToday: boolean
@@ -149,21 +149,8 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
         lastVisitDate = today
       }
 
-      let hearts = prev.hearts
-      let heartsLastRefill = prev.heartsLastRefill
-      if (hearts < MAX_HEARTS) {
-        const elapsed = Date.now() - prev.heartsLastRefill
-        const gained = Math.floor(elapsed / HEART_REFILL_MS)
-        if (gained > 0) {
-          hearts = Math.min(MAX_HEARTS, prev.hearts + gained)
-          heartsLastRefill =
-            hearts === MAX_HEARTS
-              ? Date.now()
-              : prev.heartsLastRefill + gained * HEART_REFILL_MS
-        }
-      } else {
-        heartsLastRefill = Date.now()
-      }
+      // Энергия размышлений всегда максимальна - убираем стрессовые ограничения
+      let contemplativeEnergy = CONTEMPLATIVE_ENERGY_MAX
 
       let weeklyXp = prev.weeklyXp
       let weekStart = prev.weekStart
@@ -181,8 +168,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
         streak !== prev.streak ||
         longestStreak !== prev.longestStreak ||
         lastVisitDate !== prev.lastVisitDate ||
-        hearts !== prev.hearts ||
-        heartsLastRefill !== prev.heartsLastRefill ||
+        contemplativeEnergy !== prev.contemplativeEnergy ||
         weeklyXp !== prev.weeklyXp ||
         weekStart !== prev.weekStart ||
         claimedRewards !== prev.claimedRewards ||
@@ -195,8 +181,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
         streak,
         longestStreak,
         lastVisitDate,
-        hearts,
-        heartsLastRefill,
+        contemplativeEnergy,
         weeklyXp,
         weekStart,
         claimedRewards,
@@ -233,15 +218,10 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     [],
   )
 
-  const loseHeart = useCallback(() => {
-    setState((prev) => ({ ...prev, hearts: Math.max(0, prev.hearts - 1) }))
-  }, [])
-
-  const refillHearts = useCallback(() => {
-    setState((prev) => ({
-      ...prev,
-      hearts: MAX_HEARTS,
-      heartsLastRefill: Date.now(),
+  const restoreEnergy = useCallback((amount: number = 10) => {
+    setState((prev) => ({ 
+      ...prev, 
+      contemplativeEnergy: Math.min(CONTEMPLATIVE_ENERGY_MAX, prev.contemplativeEnergy + amount)
     }))
   }, [])
 
@@ -270,7 +250,8 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
           next.coins = prev.coins + reward.amount
           break
         case 'heart':
-          next.hearts = Math.min(MAX_HEARTS, prev.hearts + reward.amount)
+          // Награды 'heart' теперь восстанавливают энергию размышлений  
+          next.contemplativeEnergy = Math.min(CONTEMPLATIVE_ENERGY_MAX, prev.contemplativeEnergy + reward.amount * 10)
           break
         case 'mega':
           next.xp = prev.xp + 100
@@ -369,7 +350,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
       ...DEFAULT_STATE,
       lastVisitDate: todayStr(),
       weekStart: getWeekStart(),
-      heartsLastRefill: Date.now(),
+      contemplativeEnergy: CONTEMPLATIVE_ENERGY_MAX,
     }
     setState(fresh)
   }, [])
@@ -387,8 +368,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     addXp,
     addCoins,
     spendCoins,
-    loseHeart,
-    refillHearts,
+    restoreEnergy,
     claimReward,
     resetProgress,
     canClaimToday,

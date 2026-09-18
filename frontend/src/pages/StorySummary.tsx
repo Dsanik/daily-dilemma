@@ -196,7 +196,7 @@ export function StorySummary({ story, onClose, onReset }: StorySummaryProps) {
             size={16}
             className={
               shareState === "generating" || shareState === "sharing"
-                ? "animate-spin"
+                ? "calm-pulse"
                 : ""
             }
           />

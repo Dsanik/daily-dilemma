@@ -19,7 +19,7 @@ export async function confirmDialog(message: string): Promise<boolean> {
       return buttonId === 'confirm'
     }
   } catch (err) {
-    console.warn('Telegram popup недоступен, используем confirm():', err)
+    // Telegram popup недоступен, используем стандартный confirm
   }
 
   return window.confirm(message)

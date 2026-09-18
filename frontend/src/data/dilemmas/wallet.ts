@@ -23,7 +23,6 @@ export const walletDilemma: Dilemma = {
       choice_1: {
         type: 'choice',
         text: 'Твои действия?',
-        tension: 'tense',
         options: [
           {
             id: 'take_money',
@@ -50,7 +49,6 @@ export const walletDilemma: Dilemma = {
       choice_2_find: {
         type: 'choice',
         text: 'Ты находишь Алексея в соцсетях. У него на аватарке — жена и двое детей. Пишешь ему. Он отвечает: «Спасибо! Заберу завтра, скинь адрес». Что делаешь?',
-        tension: 'critical',
         options: [
           {
             id: 'meet_public',
