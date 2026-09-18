@@ -586,6 +586,122 @@ app.get('/api/streak', (req, res) => {
   }
 })
 
+// ─── Загрузка изображений для шеринга ───
+app.post('/api/upload-share-image', async (req, res) => {
+  try {
+    // Получаем base64 изображение из тела запроса
+    const { image, filename } = req.body || {}
+    
+    if (!image || typeof image !== 'string') {
+      return res.status(400).json({ error: 'Image data is required' })
+    }
+    
+    if (!filename || typeof filename !== 'string') {
+      return res.status(400).json({ error: 'Filename is required' })
+    }
+
+    // Валидация base64 (должно начинаться с data:image/png;base64,)
+    const base64Match = image.match(/^data:image\/(png|jpeg|jpg);base64,(.+)$/)
+    if (!base64Match) {
+      return res.status(400).json({ error: 'Invalid image format. Expected base64 encoded image.' })
+    }
+
+    const imageType = base64Match[1]
+    const base64Data = base64Match[2]
+    
+    // Проверяем размер (ограничиваем 5MB)
+    const imageSizeBytes = (base64Data.length * 3) / 4
+    if (imageSizeBytes > 5 * 1024 * 1024) {
+      return res.status(400).json({ error: 'Image too large. Maximum size is 5MB.' })
+    }
+
+    // Создаем уникальный ID для изображения
+    const imageId = crypto.randomUUID()
+    const cleanFilename = filename.replace(/[^a-zA-Z0-9.-]/g, '_')
+    
+    // Сохраняем изображение в памяти (в production можно использовать S3, Cloudinary и т.д.)
+    // Для упрощения используем временное хранилище в памяти
+    if (!global.tempImages) {
+      global.tempImages = new Map()
+    }
+    
+    // Сохраняем изображение с TTL (время жизни 1 час)
+    global.tempImages.set(imageId, {
+      data: base64Data,
+      type: imageType,
+      filename: cleanFilename,
+      createdAt: Date.now(),
+      ttl: 60 * 60 * 1000 // 1 час в миллисекундах
+    })
+    
+    // Очищаем старые изображения
+    cleanupExpiredImages()
+    
+    // Возвращаем публичный URL
+    const publicUrl = `https://daily-dilemma.onrender.com/api/share-image/${imageId}`
+    
+    res.json({ 
+      ok: true, 
+      url: publicUrl,
+      imageId: imageId,
+      expiresIn: 3600 // секунд
+    })
+    
+  } catch (error) {
+    console.error('Upload share image error:', error)
+    res.status(500).json({ error: 'Failed to upload image' })
+  }
+})
+
+// Endpoint для получения загруженных изображений
+app.get('/api/share-image/:imageId', (req, res) => {
+  try {
+    const { imageId } = req.params
+    
+    if (!global.tempImages || !global.tempImages.has(imageId)) {
+      return res.status(404).json({ error: 'Image not found or expired' })
+    }
+    
+    const imageData = global.tempImages.get(imageId)
+    
+    // Проверяем TTL
+    if (Date.now() - imageData.createdAt > imageData.ttl) {
+      global.tempImages.delete(imageId)
+      return res.status(404).json({ error: 'Image expired' })
+    }
+    
+    // Конвертируем base64 в buffer
+    const buffer = Buffer.from(imageData.data, 'base64')
+    
+    // Устанавливаем правильные заголовки
+    res.setHeader('Content-Type', `image/${imageData.type}`)
+    res.setHeader('Content-Length', buffer.length)
+    res.setHeader('Cache-Control', 'public, max-age=3600') // Кешируем на 1 час
+    res.setHeader('Content-Disposition', `inline; filename="${imageData.filename}"`)
+    
+    res.send(buffer)
+    
+  } catch (error) {
+    console.error('Get share image error:', error)
+    res.status(500).json({ error: 'Failed to get image' })
+  }
+})
+
+// Функция для очистки устаревших изображений
+function cleanupExpiredImages() {
+  if (!global.tempImages) return
+  
+  const now = Date.now()
+  for (const [imageId, imageData] of global.tempImages.entries()) {
+    if (now - imageData.createdAt > imageData.ttl) {
+      global.tempImages.delete(imageId)
+    }
+  }
+}
+
+// Периодическая очистка каждые 10 минут
+setInterval(cleanupExpiredImages, 10 * 60 * 1000)
+
 // ─── Крон: напоминания в 20:00 ───
 cron.schedule(
   '0 20 * * *',

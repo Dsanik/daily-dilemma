@@ -47,6 +47,22 @@ export function StorySummary({ story, onClose, onReset }: StorySummaryProps) {
     try {
       setShareState("generating");
       // "Премиум-карточка" списывается за каждый шеринг — расходник.
+      // Проверяем, что Telegram WebApp инициализирован (для мобильных устройств)
+      const isTelegramWebView = Boolean(window.Telegram?.WebApp?.initData);
+      const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      
+      if (isTelegramWebView && isMobile) {
+        // Убеждаемся, что WebApp готов
+        const webApp = window.Telegram?.WebApp;
+        if (webApp && typeof webApp.ready === 'function') {
+          try {
+            webApp.ready();
+          } catch (e) {
+            console.warn('WebApp.ready() call failed:', e);
+          }
+        }
+      }
+
       const premium = hasItem("premium_card") && consumeItem("premium_card");
       const blob = await generateStoryShareCard({
         story,
@@ -61,8 +77,9 @@ export function StorySummary({ story, onClose, onReset }: StorySummaryProps) {
       );
 
       if (outcome.method === "failed") {
+        console.error("Story share failed:", outcome.error);
         setShareState("failed");
-        setTimeout(() => setShareState("idle"), 2000);
+        setTimeout(() => setShareState("idle"), 2500);
         return;
       }
 
@@ -76,9 +93,9 @@ export function StorySummary({ story, onClose, onReset }: StorySummaryProps) {
         outcome.method === "preview" ? 5000 : 2500,
       );
     } catch (err) {
-      console.error("Share error:", err);
+      console.error("Story share error:", err);
       setShareState("failed");
-      setTimeout(() => setShareState("idle"), 2000);
+      setTimeout(() => setShareState("idle"), 2500);
     }
   }
 

@@ -15,6 +15,11 @@ interface TelegramWebAppShape {
   }
   ready?: () => void
   expand?: () => void
+  // Share API methods
+  shareToStory?: (mediaUrl: string) => void
+  isVersionAtLeast?: (version: string) => boolean
+  openTelegramLink?: (url: string) => void
+  openLink?: (url: string) => void
   MainButton?: {
     setText: (text: string) => void
     show: () => void

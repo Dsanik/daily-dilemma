@@ -250,7 +250,36 @@ export const api = {
   // Health check endpoint for monitoring API status
   healthCheck: async (): Promise<{ ok: boolean; uptime?: number; users?: number } | null> => {
     return get('/health')
+  },
+
+  // Upload share image and get public URL
+  uploadShareImage: async (blob: Blob, filename: string): Promise<{ ok: boolean; url?: string; imageId?: string; expiresIn?: number; error?: string } | null> => {
+    try {
+      // Convert blob to base64
+      const base64 = await blobToBase64(blob)
+      
+      return post<{ ok: boolean; url: string; imageId: string; expiresIn: number }>('/api/upload-share-image', {
+        image: base64,
+        filename: filename.trim() || 'share-image.png'
+      })
+    } catch (error) {
+      console.error('Upload share image error:', error)
+      return { ok: false, error: error instanceof Error ? error.message : 'Upload failed' }
+    }
   }
+}
+
+// Helper function to convert Blob to base64
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = reader.result as string
+      resolve(result)
+    }
+    reader.onerror = reject
+    reader.readAsDataURL(blob)
+  })
 }
 
 // Export utility functions for testing and debugging

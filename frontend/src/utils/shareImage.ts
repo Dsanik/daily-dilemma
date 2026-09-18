@@ -1,3 +1,5 @@
+import { api } from '../api/client';
+
 export interface ShareOutcome {
   method: "telegram" | "download" | "preview" | "failed";
   error?: string;
@@ -7,86 +9,142 @@ export async function shareImage(
   blob: Blob,
   filename: string,
 ): Promise<ShareOutcome> {
-  const file = new File([blob], filename, { type: "image/png" });
-  const url = URL.createObjectURL(blob);
   const isTelegramWebView = Boolean(window.Telegram?.WebApp?.initData);
+  const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
-  // 1. Telegram: если есть нативный share API
-  try {
-    const wa = window.Telegram?.WebApp as
-      | (Window["Telegram"] extends { WebApp?: infer W } ? W : never)
-      | undefined;
-
-    const anyWa = wa as unknown as
-      | {
-          shareToStory?: (mediaUrl: string) => void;
-          isVersionAtLeast?: (v: string) => boolean;
-        }
-      | undefined;
-
-    // shareToStory доступен в свежих версиях
-    if (anyWa?.shareToStory && anyWa?.isVersionAtLeast?.("7.8")) {
-      anyWa.shareToStory(url);
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-      return { method: "telegram" };
-    }
-  } catch (err) {
-    console.warn("Telegram share failed:", err);
-  }
-
-  // 2. Web Share API (iOS Safari, Android Chrome) — часто недоступен именно
-  // внутри встроенного WebView Telegram, но пробуем в любом контексте.
-  try {
-    if (
-      typeof navigator !== "undefined" &&
-      "canShare" in navigator &&
-      typeof navigator.canShare === "function" &&
-      navigator.canShare({ files: [file] })
-    ) {
-      await navigator.share({
-        files: [file],
-        title: "Дилемма дня",
-        text: "Мой выбор в дилемме дня",
-      });
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-      return { method: "telegram" };
-    }
-  } catch (err) {
-    console.warn("Web Share failed:", err);
-  }
-
-  // 3a. Внутри Telegram Mini App скачивание через невидимую <a download>
-  // ЧАСТО НЕ РАБОТАЕТ: встроенный WebView может "проглотить" клик без
-  // ошибки, но так и не положить файл никуда, куда пользователь может
-  // добраться (не в Галерею, не в Файлы) — визуально выглядит как успех,
-  // а по факту файл нигде не найти. Поэтому здесь вместо тихого скачивания
-  // открываем картинку на весь экран — там гарантированно работает
-  // системный жест "нажать и удержать → сохранить", т.к. это уже обычное
-  // изображение на странице, а не программное скачивание.
-  if (isTelegramWebView) {
+  // ИСПРАВЛЕНИЕ 1: Для Telegram Mini App на мобильных устройствах используем публичный URL
+  if (isTelegramWebView && isMobile) {
     try {
-      window.open(url, "_blank");
-      setTimeout(() => URL.revokeObjectURL(url), 5000);
+      console.log('Mobile Telegram detected, uploading image to server...');
+      
+      // Загружаем изображение на сервер и получаем публичный HTTPS URL
+      const uploadResult = await api.uploadShareImage(blob, filename);
+      
+      if (!uploadResult?.ok || !uploadResult.url) {
+        throw new Error(uploadResult?.error || 'Failed to upload image');
+      }
+
+      const publicUrl = uploadResult.url;
+      console.log('Image uploaded, public URL:', publicUrl);
+
+      // Пробуем Telegram Web App API с публичным URL
+      const webApp = window.Telegram?.WebApp;
+      
+      if (webApp) {
+        // ИСПРАВЛЕНИЕ 2: Используем правильные методы Telegram Web App API
+        
+        // 1a. shareToStory для Stories (работает в новых версиях)
+        if (typeof webApp.shareToStory === 'function' && 
+            typeof webApp.isVersionAtLeast === 'function' && 
+            webApp.isVersionAtLeast('7.8')) {
+          console.log('Using Telegram shareToStory API');
+          webApp.shareToStory(publicUrl);
+          return { method: "telegram" };
+        }
+
+        // 1b. openTelegramLink для обычного шеринга
+        if (typeof webApp.openTelegramLink === 'function') {
+          console.log('Using Telegram openTelegramLink API');
+          const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(publicUrl)}&text=${encodeURIComponent('Мой результат в Дилемме дня!')}`;
+          webApp.openTelegramLink(shareUrl);
+          return { method: "telegram" };
+        }
+
+        // 1c. openLink как fallback
+        if (typeof webApp.openLink === 'function') {
+          console.log('Using Telegram openLink API');
+          const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(publicUrl)}&text=${encodeURIComponent('Мой результат в Дилемме дня!')}`;
+          webApp.openLink(shareUrl);
+          return { method: "telegram" };
+        }
+      }
+
+      // Fallback: открываем изображение в новом окне для ручного сохранения
+      console.log('Using fallback: opening image in new window');
+      window.open(publicUrl, '_blank');
       return { method: "preview" };
-    } catch (err) {
-      console.warn("Preview open failed:", err);
+
+    } catch (error) {
+      console.error('Mobile Telegram share error:', error);
+      // Fallback на локальный blob URL
+      return shareWithLocalUrl(blob, filename, isTelegramWebView);
     }
   }
 
-  // 3b. Обычный браузер (не Telegram) — тут скачивание работает нормально
-  try {
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-    return { method: "download" };
-  } catch (err) {
-    return {
-      method: "failed",
-      error: err instanceof Error ? err.message : "unknown",
-    };
-  }
+  // ИСПРАВЛЕНИЕ 3: Для всех остальных случаев используем локальную логику
+  return shareWithLocalUrl(blob, filename, isTelegramWebView);
+}
+
+// Функция для шеринга с локальным blob URL (для десктопа и fallback)
+function shareWithLocalUrl(blob: Blob, filename: string, isTelegramWebView: boolean): Promise<ShareOutcome> {
+  return new Promise((resolve) => {
+    const file = new File([blob], filename, { type: "image/png" });
+    const url = URL.createObjectURL(blob);
+
+    // Cleanup function
+    const cleanup = () => URL.revokeObjectURL(url);
+
+    // 1. Web Share API (работает на некоторых платформах)
+    if (typeof navigator !== "undefined" && 
+        "canShare" in navigator && 
+        typeof navigator.canShare === "function") {
+      try {
+        if (navigator.canShare({ files: [file] })) {
+          navigator.share({
+            files: [file],
+            title: "Дилемма дня",
+            text: "Мой выбор в дилемме дня",
+          }).then(() => {
+            cleanup();
+            resolve({ method: "telegram" });
+          }).catch((err) => {
+            console.warn("Web Share failed:", err);
+            fallbackShare();
+          });
+          return;
+        }
+      } catch (err) {
+        console.warn("Web Share API error:", err);
+      }
+    }
+
+    function fallbackShare() {
+      // 2a. Telegram WebView: открываем изображение для ручного сохранения
+      if (isTelegramWebView) {
+        try {
+          window.open(url, "_blank");
+          setTimeout(cleanup, 5000);
+          resolve({ method: "preview" });
+        } catch (err) {
+          console.warn("Preview open failed:", err);
+          downloadFallback();
+        }
+      } else {
+        downloadFallback();
+      }
+    }
+
+    function downloadFallback() {
+      // 2b. Обычный браузер: программное скачивание
+      try {
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = filename;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(cleanup, 1000);
+        resolve({ method: "download" });
+      } catch (err) {
+        cleanup();
+        resolve({
+          method: "failed",
+          error: err instanceof Error ? err.message : "Download failed",
+        });
+      }
+    }
+
+    fallbackShare();
+  });
 }
