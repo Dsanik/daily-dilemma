@@ -1,10 +1,9 @@
 import { Check, Moon, Sunrise } from 'lucide-react'
 
 interface CompletedTodayProps {
-  countdown: string
 }
 
-export function CompletedToday({ countdown }: CompletedTodayProps) {
+export function CompletedToday({}: CompletedTodayProps) {
   // Определяем время суток для подходящего сообщения
   const hour = new Date().getHours()
   const isEvening = hour >= 18 || hour < 6

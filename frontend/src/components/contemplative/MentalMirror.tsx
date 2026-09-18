@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react'
 import { Typography, Card, Spacing } from '../ui'
-import { Heart, Brain, Compass, Mountain, Eye, Sparkles } from 'lucide-react'
+import { Heart, Brain, Compass, Mountain, Eye } from 'lucide-react'
 
 interface MentalMirrorProps {
   choice: string
   outcome: string
-  dilemmaCategory: string
   onComplete: () => void
 }
 
@@ -48,19 +47,11 @@ const REFLECTIONS: Reflection[] = [
   }
 ]
 
-export function MentalMirror({ choice, outcome, dilemmaCategory, onComplete }: MentalMirrorProps) {
+export function MentalMirror({ choice, outcome, onComplete }: MentalMirrorProps) {
   const [currentReflection, setCurrentReflection] = useState(0)
-  const [ripples, setRipples] = useState<number[]>([])
   const [showInsight, setShowInsight] = useState(false)
   
-  useEffect(() => {
-    // Создаем волны отражений
-    const interval = setInterval(() => {
-      setRipples(prev => [...prev, Date.now()].slice(-2))
-    }, 2000)
-    
-    return () => clearInterval(interval)
-  }, [])
+
   
   useEffect(() => {
     // Автоматический переход между размышлениями

@@ -84,7 +84,6 @@ export function DilemmaPlayer({
       <MentalMirror 
         choice={echoData.choice}
         outcome={echoData.outcome}
-        dilemmaCategory={dilemma.meta?.category || 'everyday'}
         onComplete={handleEchoContinue}
       />
     ) : (
