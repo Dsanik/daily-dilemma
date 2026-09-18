@@ -1,40 +1,49 @@
-import { useEffect, useState } from 'react'
-import { Flame, Trophy, Target, Sparkles, Coins, ShoppingBag } from 'lucide-react'
-import { loadProgress } from '../utils/dailyProgress'
-import { useProgress } from '../contexts/ProgressContext'
-import { allDilemmas } from '../data/dilemmas'
-import { categories } from '../data/categories'
+import { useEffect, useState } from "react";
+import {
+  Flame,
+  Trophy,
+  Target,
+  Sparkles,
+  Coins,
+  ShoppingBag,
+} from "lucide-react";
+import { loadProgress } from "../utils/dailyProgress";
+import { getDominantTrait } from "../utils/decisionProfile";
+import { useProgress } from "../contexts/ProgressContext";
+import { allDilemmas } from "../data/dilemmas";
+import { categories } from "../data/categories";
 import {
   getUnlockedAchievements,
   getNextAchievement,
-} from '../utils/achievements'
-import { StreakBadge } from '../components/StreakBadge'
-import { ShopPage } from './ShopPage'
-import type { DailyProgress } from '../types'
+} from "../utils/achievements";
+import { StreakBadge } from "../components/StreakBadge";
+import { ShopPage } from "./ShopPage";
+import type { DailyProgress } from "../types";
 
 export function ProfilePage() {
-  const [progress, setProgress] = useState<DailyProgress>(() => loadProgress())
-  const { state } = useProgress()
-  const [showShop, setShowShop] = useState(false)
+  const [progress, setProgress] = useState<DailyProgress>(() => loadProgress());
+  const { state } = useProgress();
+  const [showShop, setShowShop] = useState(false);
+  const dominantTrait = getDominantTrait();
 
   useEffect(() => {
-    setProgress(loadProgress())
-  }, [])
+    setProgress(loadProgress());
+  }, []);
 
   if (showShop) {
-    return <ShopPage onClose={() => setShowShop(false)} />
+    return <ShopPage onClose={() => setShowShop(false)} />;
   }
 
-  const totalPlayed = Object.keys(progress.completedDilemmas).length
-  const totalDilemmas = allDilemmas.length
-  const achievements = getUnlockedAchievements(progress, totalPlayed)
-  const nextAchievement = getNextAchievement(progress, totalPlayed)
+  const totalPlayed = Object.keys(progress.completedDilemmas).length;
+  const totalDilemmas = allDilemmas.length;
+  const achievements = getUnlockedAchievements(progress, totalPlayed);
+  const nextAchievement = getNextAchievement(progress, totalPlayed);
 
   const categoryStats = categories.map((cat) => {
-    const inCategory = allDilemmas.filter((d) => d.meta?.category === cat.id)
+    const inCategory = allDilemmas.filter((d) => d.meta?.category === cat.id);
     const played = inCategory.filter(
       (d) => progress.completedDilemmas[d.slug],
-    ).length
+    ).length;
     return {
       ...cat,
       total: inCategory.length,
@@ -43,13 +52,13 @@ export function ProfilePage() {
         inCategory.length === 0
           ? 0
           : Math.round((played / inCategory.length) * 100),
-    }
-  })
+    };
+  });
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-start justify-between gap-3">
-        <div>
+        <div className="min-w-0">
           <h1 className="text-xl font-bold">Профиль</h1>
           <p className="mt-1 text-xs opacity-60">
             Пройдено {totalPlayed} из {totalDilemmas}
@@ -64,7 +73,7 @@ export function ProfilePage() {
       {/* Цифры: стрик, рекорд, монеты */}
       <div
         className="grid grid-cols-3 gap-2 rounded-2xl p-4"
-        style={{ backgroundColor: 'var(--app-secondary)' }}
+        style={{ backgroundColor: "var(--app-secondary)" }}
       >
         <div className="flex flex-col items-center gap-1">
           <Flame size={20} color="#f97316" />
@@ -82,24 +91,43 @@ export function ProfilePage() {
         </div>
         <div className="flex flex-col items-center gap-1">
           <Coins size={20} color="#fbbf24" />
-          <span className="text-lg font-bold tabular-nums">
-            {state.coins}
-          </span>
+          <span className="text-lg font-bold tabular-nums">{state.coins}</span>
           <span className="text-[10px] opacity-60">монет</span>
         </div>
       </div>
+
+      {dominantTrait && (
+        <div
+          className="flex items-center gap-3 rounded-2xl p-4"
+          style={{ backgroundColor: "var(--app-secondary)" }}
+        >
+          <span className="text-2xl">{dominantTrait.trait.icon}</span>
+          <div className="flex flex-col">
+            <span className="text-[10px] font-semibold uppercase tracking-wide opacity-50">
+              Профиль решений
+            </span>
+            <p className="text-sm">
+              Судя по последним {dominantTrait.totalDecisions} выборам,
+              склоняешься к{" "}
+              <strong style={{ color: "var(--app-accent)" }}>
+                {dominantTrait.trait.genitive}
+              </strong>
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Кнопка магазина */}
       <button
         type="button"
         onClick={() => setShowShop(true)}
         className="flex items-center justify-between gap-3 rounded-2xl p-4 text-left transition-opacity active:opacity-80"
-        style={{ backgroundColor: 'var(--app-secondary)' }}
+        style={{ backgroundColor: "var(--app-secondary)" }}
       >
         <div className="flex items-center gap-3">
           <div
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
-            style={{ backgroundColor: '#fbbf24' }}
+            style={{ backgroundColor: "#fbbf24" }}
           >
             <ShoppingBag size={18} color="#ffffff" />
           </div>
@@ -112,7 +140,10 @@ export function ProfilePage() {
         </div>
         <span
           className="shrink-0 rounded-full px-3 py-1 text-xs font-bold tabular-nums"
-          style={{ backgroundColor: 'rgba(251, 191, 36, 0.15)', color: '#fbbf24' }}
+          style={{
+            backgroundColor: "rgba(251, 191, 36, 0.15)",
+            color: "#fbbf24",
+          }}
         >
           {state.coins} 🪙
         </span>
@@ -123,13 +154,16 @@ export function ProfilePage() {
         <div
           className="flex items-center gap-3 rounded-2xl p-3"
           style={{
-            backgroundColor: 'rgba(74, 158, 255, 0.12)',
-            border: '1px solid rgba(74, 158, 255, 0.3)',
+            backgroundColor: "rgba(74, 158, 255, 0.12)",
+            border: "1px solid rgba(74, 158, 255, 0.3)",
           }}
         >
           <span className="text-lg">❄️</span>
           <div className="flex flex-col">
-            <span className="text-xs font-semibold" style={{ color: '#4a9eff' }}>
+            <span
+              className="text-xs font-semibold"
+              style={{ color: "#4a9eff" }}
+            >
               Заморозка активна: {state.inventory.streakFreezes}
             </span>
             <span className="text-[10px] opacity-60">
@@ -142,7 +176,7 @@ export function ProfilePage() {
       {/* Карта тем */}
       <div
         className="flex flex-col gap-3 rounded-2xl p-4"
-        style={{ backgroundColor: 'var(--app-secondary)' }}
+        style={{ backgroundColor: "var(--app-secondary)" }}
       >
         <div className="flex items-center gap-2">
           <Target size={16} className="opacity-60" />
@@ -161,7 +195,7 @@ export function ProfilePage() {
               </div>
               <div
                 className="h-1.5 w-full overflow-hidden rounded-full"
-                style={{ backgroundColor: 'rgba(128,128,128,0.15)' }}
+                style={{ backgroundColor: "rgba(128,128,128,0.15)" }}
               >
                 <div
                   className="h-full rounded-full transition-all"
@@ -179,7 +213,7 @@ export function ProfilePage() {
       {/* Достижения */}
       <div
         className="flex flex-col gap-3 rounded-2xl p-4"
-        style={{ backgroundColor: 'var(--app-secondary)' }}
+        style={{ backgroundColor: "var(--app-secondary)" }}
       >
         <div className="flex items-center gap-2">
           <Sparkles size={16} className="opacity-60" />
@@ -192,11 +226,11 @@ export function ProfilePage() {
             <div
               key={ach.id}
               className="flex items-start gap-3 rounded-lg p-2.5"
-              style={{ backgroundColor: 'rgba(74, 158, 255, 0.08)' }}
+              style={{ backgroundColor: "rgba(74, 158, 255, 0.08)" }}
             >
               <div
                 className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full"
-                style={{ backgroundColor: 'var(--app-accent)' }}
+                style={{ backgroundColor: "var(--app-accent)" }}
               >
                 <Trophy size={12} color="#ffffff" />
               </div>
@@ -219,11 +253,11 @@ export function ProfilePage() {
         {nextAchievement && (
           <div
             className="mt-1 flex items-start gap-3 rounded-lg p-2.5 opacity-70"
-            style={{ backgroundColor: 'rgba(128,128,128,0.08)' }}
+            style={{ backgroundColor: "rgba(128,128,128,0.08)" }}
           >
             <div
               className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full"
-              style={{ backgroundColor: 'rgba(128,128,128,0.3)' }}
+              style={{ backgroundColor: "rgba(128,128,128,0.3)" }}
             >
               <Trophy size={12} color="#ffffff" />
             </div>
@@ -239,5 +273,5 @@ export function ProfilePage() {
         )}
       </div>
     </div>
-  )
+  );
 }

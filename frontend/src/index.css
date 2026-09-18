@@ -10,7 +10,9 @@
   --app-destructive: var(--tg-theme-destructive-text-color, #ef4444);
 }
 
-html, body, #root {
+html,
+body,
+#root {
   height: 100%;
   margin: 0;
   padding: 0;
@@ -19,7 +21,8 @@ html, body, #root {
 body {
   background-color: var(--app-bg);
   color: var(--app-text);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overscroll-behavior: none;
@@ -39,8 +42,21 @@ button {
   min-height: 100dvh;
   background-color: var(--app-bg);
   background-image:
-    radial-gradient(circle at 15% 0%, rgba(74, 158, 255, 0.08) 0%, transparent 40%),
-    radial-gradient(circle at 85% 100%, rgba(139, 92, 246, 0.06) 0%, transparent 40%);
+    radial-gradient(
+      circle at 15% 0%,
+      rgba(74, 158, 255, 0.12) 0%,
+      transparent 45%
+    ),
+    radial-gradient(
+      circle at 85% 15%,
+      rgba(139, 92, 246, 0.09) 0%,
+      transparent 45%
+    ),
+    radial-gradient(
+      circle at 20% 100%,
+      rgba(251, 191, 36, 0.05) 0%,
+      transparent 40%
+    );
   background-attachment: fixed;
 }
 
@@ -57,13 +73,25 @@ button {
 }
 
 @media (min-width: 768px) {
-  .text-adaptive-lg { font-size: 1.125rem; line-height: 1.75rem; }
-  .text-adaptive-xl { font-size: 1.5rem; line-height: 2rem; }
-  .text-adaptive-2xl { font-size: 1.875rem; line-height: 2.25rem; }
+  .text-adaptive-lg {
+    font-size: 1.125rem;
+    line-height: 1.75rem;
+  }
+  .text-adaptive-xl {
+    font-size: 1.5rem;
+    line-height: 2rem;
+  }
+  .text-adaptive-2xl {
+    font-size: 1.875rem;
+    line-height: 2.25rem;
+  }
 }
 
 @media (max-height: 500px) and (orientation: landscape) {
-  .landscape-compact { padding-top: 12px; padding-bottom: 12px; }
+  .landscape-compact {
+    padding-top: 12px;
+    padding-bottom: 12px;
+  }
 }
 
 .line-clamp-2 {

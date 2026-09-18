@@ -1,105 +1,110 @@
-import { RotateCcw, Share2, Loader2, Check, Download } from 'lucide-react'
-import { useState } from 'react'
-import type { Story } from '../types'
-import { loadStoryProgress } from '../utils/storyEngine'
-import { generateStoryShareCard } from '../utils/shareStoryCard'
-import { shareImage } from '../utils/shareImage'
-import { StoryPathCard } from '../components/story/StoryPathCard'
-import { useProgress } from '../contexts/ProgressContext'
+import { RotateCcw, Share2, Loader2, Check, Download } from "lucide-react";
+import { useState } from "react";
+import type { Story } from "../types";
+import { loadStoryProgress } from "../utils/storyEngine";
+import { generateStoryShareCard } from "../utils/shareStoryCard";
+import { shareImage } from "../utils/shareImage";
+import { StoryPathCard } from "../components/story/StoryPathCard";
+import { useProgress } from "../contexts/ProgressContext";
 
 interface StorySummaryProps {
-  story: Story
-  onClose: () => void
-  onReset: () => void
+  story: Story;
+  onClose: () => void;
+  onReset: () => void;
 }
 
-type ShareState = 'idle' | 'generating' | 'sharing' | 'done' | 'failed'
+type ShareState = "idle" | "generating" | "sharing" | "done" | "failed";
 
 export function StorySummary({ story, onClose, onReset }: StorySummaryProps) {
-  const [shareState, setShareState] = useState<ShareState>('idle')
-  const [shareMethod, setShareMethod] = useState<'telegram' | 'download' | null>(
-    null,
-  )
-  const { hasItem, consumeItem } = useProgress()
+  const [shareState, setShareState] = useState<ShareState>("idle");
+  const [shareMethod, setShareMethod] = useState<
+    "telegram" | "download" | "preview" | null
+  >(null);
+  const { hasItem, consumeItem } = useProgress();
 
-  const progress = loadStoryProgress(story)
+  const progress = loadStoryProgress(story);
   const finale = progress.finaleId
     ? story.finales.find((f) => f.id === progress.finaleId)
-    : null
+    : null;
 
   const choicesByChapter = story.chapters
     .map((ch) => {
       const chapterChoices = progress.choices.filter(
         (c) => c.chapterId === ch.id,
-      )
+      );
       return {
         chapter: ch,
         choices: chapterChoices,
-      }
+      };
     })
-    .filter((item) => item.choices.length > 0)
+    .filter((item) => item.choices.length > 0);
 
-  const totalChoices = progress.choices.length
+  const totalChoices = progress.choices.length;
 
   async function handleShare() {
-    if (shareState === 'generating' || shareState === 'sharing') return
+    if (shareState === "generating" || shareState === "sharing") return;
 
     try {
-      setShareState('generating')
+      setShareState("generating");
       // "Премиум-карточка" списывается за каждый шеринг — расходник.
-      const premium = hasItem('premium_card') && consumeItem('premium_card')
+      const premium = hasItem("premium_card") && consumeItem("premium_card");
       const blob = await generateStoryShareCard({
         story,
         progress,
         finale: finale ?? null,
         premium,
-      })
-      setShareState('sharing')
+      });
+      setShareState("sharing");
       const outcome = await shareImage(
         blob,
         `story-${story.slug}-${Date.now()}.png`,
-      )
+      );
 
-      if (outcome.method === 'failed') {
-        setShareState('failed')
-        setTimeout(() => setShareState('idle'), 2000)
-        return
+      if (outcome.method === "failed") {
+        setShareState("failed");
+        setTimeout(() => setShareState("idle"), 2000);
+        return;
       }
 
-      setShareMethod(outcome.method)
-      setShareState('done')
-      setTimeout(() => {
-        setShareState('idle')
-        setShareMethod(null)
-      }, 2500)
+      setShareMethod(outcome.method);
+      setShareState("done");
+      setTimeout(
+        () => {
+          setShareState("idle");
+          setShareMethod(null);
+        },
+        outcome.method === "preview" ? 5000 : 2500,
+      );
     } catch (err) {
-      console.error('Share error:', err)
-      setShareState('failed')
-      setTimeout(() => setShareState('idle'), 2000)
+      console.error("Share error:", err);
+      setShareState("failed");
+      setTimeout(() => setShareState("idle"), 2000);
     }
   }
 
   const shareLabel =
-    shareState === 'generating'
-      ? 'Создаём карточку…'
-      : shareState === 'sharing'
-        ? 'Открываем…'
-        : shareState === 'done' && shareMethod === 'download'
-          ? 'Карточка сохранена'
-          : shareState === 'done'
-            ? 'Готово'
-            : shareState === 'failed'
-              ? 'Не получилось'
-              : 'Поделиться историей'
+    shareState === "generating"
+      ? "Создаём карточку…"
+      : shareState === "sharing"
+        ? "Открываем…"
+        : shareState === "done" && shareMethod === "download"
+          ? "Карточка сохранена"
+          : shareState === "done" && shareMethod === "preview"
+            ? "Зажми картинку, чтобы сохранить"
+            : shareState === "done"
+              ? "Готово"
+              : shareState === "failed"
+                ? "Не получилось"
+                : "Поделиться историей";
 
   const ShareIcon =
-    shareState === 'generating' || shareState === 'sharing'
+    shareState === "generating" || shareState === "sharing"
       ? Loader2
-      : shareState === 'done'
-        ? shareMethod === 'download'
+      : shareState === "done"
+        ? shareMethod === "download"
           ? Download
           : Check
-        : Share2
+        : Share2;
 
   return (
     <div className="flex flex-col gap-5">
@@ -166,16 +171,16 @@ export function StorySummary({ story, onClose, onReset }: StorySummaryProps) {
         <button
           type="button"
           onClick={handleShare}
-          disabled={shareState === 'generating' || shareState === 'sharing'}
+          disabled={shareState === "generating" || shareState === "sharing"}
           className="flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-semibold text-white transition-opacity active:opacity-80 disabled:opacity-60"
           style={{ backgroundColor: story.coverColor }}
         >
           <ShareIcon
             size={16}
             className={
-              shareState === 'generating' || shareState === 'sharing'
-                ? 'animate-spin'
-                : ''
+              shareState === "generating" || shareState === "sharing"
+                ? "animate-spin"
+                : ""
             }
           />
           {shareLabel}
@@ -186,8 +191,8 @@ export function StorySummary({ story, onClose, onReset }: StorySummaryProps) {
           onClick={onReset}
           className="flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-semibold transition-opacity active:opacity-80"
           style={{
-            backgroundColor: 'var(--app-secondary)',
-            color: 'var(--app-text)',
+            backgroundColor: "var(--app-secondary)",
+            color: "var(--app-text)",
           }}
         >
           <RotateCcw size={14} />
@@ -195,5 +200,5 @@ export function StorySummary({ story, onClose, onReset }: StorySummaryProps) {
         </button>
       </div>
     </div>
-  )
+  );
 }

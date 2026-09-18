@@ -1,93 +1,101 @@
-import { useCallback, useEffect, useState } from 'react'
-import { useTelegram } from './hooks/useTelegram'
-import { useStreak } from './hooks/useStreak'
-import { useServerSync } from './hooks/useServerSync'
-import { ProgressProvider } from './contexts/ProgressContext'
-import { DilemmaPlayer } from './components/DilemmaPlayer'
-import { ShareButton } from './components/ShareButton'
-import { StreakBadge } from './components/StreakBadge'
-import { CompletedToday } from './components/CompletedToday'
-import { DailyCheckIn } from './components/DailyCheckIn'
-import { MinorityMirror } from './components/MinorityMirror'
-import { AnonymousTribunal } from './components/AnonymousTribunal'
-import { BottomNav, type TabId } from './components/BottomNav'
-import { SidebarNav } from './components/SidebarNav'
-import { ArchivePage } from './pages/ArchivePage'
-import { ProfilePage } from './pages/ProfilePage'
-import { AboutPage } from './pages/AboutPage'
-import { StoriesPage } from './pages/StoriesPage'
-import { StoryPlayer } from './pages/StoryPlayer'
-import { StorySummary } from './pages/StorySummary'
-import { getTodayDilemma } from './data/dilemmas'
-import { getMockResult, recordLocalSession } from './utils/mockStats'
+import { useCallback, useEffect, useState } from "react";
+import { useTelegram } from "./hooks/useTelegram";
+import { useStreak } from "./hooks/useStreak";
+import { useServerSync } from "./hooks/useServerSync";
+import { ProgressProvider } from "./contexts/ProgressContext";
+import { DilemmaPlayer } from "./components/DilemmaPlayer";
+import { ShareButton } from "./components/ShareButton";
+import { StreakBadge } from "./components/StreakBadge";
+import { CompletedToday } from "./components/CompletedToday";
+import { DailyCheckIn } from "./components/DailyCheckIn";
+import { MinorityMirror } from "./components/MinorityMirror";
+import { AnonymousTribunal } from "./components/AnonymousTribunal";
+import { BottomNav, type TabId } from "./components/BottomNav";
+import { SidebarNav } from "./components/SidebarNav";
+import { ArchivePage } from "./pages/ArchivePage";
+import { ProfilePage } from "./pages/ProfilePage";
+import { AboutPage } from "./pages/AboutPage";
+import { StoriesPage } from "./pages/StoriesPage";
+import { StoryPlayer } from "./pages/StoryPlayer";
+import { StorySummary } from "./pages/StorySummary";
+import { getTodayDilemma } from "./data/dilemmas";
+import {
+  getMockResult,
+  recordLocalSession,
+  getPastSession,
+} from "./utils/mockStats";
+import { recordDecision } from "./utils/decisionProfile";
 import {
   markDilemmaCompleted,
   isDilemmaCompletedToday,
-} from './utils/dailyProgress'
-import { saveResult, loadResult } from './utils/savedResult'
-import { getMinorityMirror } from './data/minorityMirrors'
-import { getOpponentArguments } from './data/anonymousArguments'
-import {
-  hasSubmittedArgument,
-  submitArgument,
-} from './utils/anonymousArchive'
-import { confirmDialog } from './utils/confirmDialog'
-import type { Dilemma, DilemmaResult, PlayMode, Story } from './types'
-import { useProgress } from './contexts/ProgressContext'
-import { ErrorBoundary } from './components/ErrorBoundary'
+} from "./utils/dailyProgress";
+import { saveResult, loadResult } from "./utils/savedResult";
+import { getMinorityMirror } from "./data/minorityMirrors";
+import { getOpponentArguments } from "./data/anonymousArguments";
+import { hasSubmittedArgument, submitArgument } from "./utils/anonymousArchive";
+import { confirmDialog } from "./utils/confirmDialog";
+import type { Dilemma, DilemmaResult, PlayMode, Story } from "./types";
+import { useProgress } from "./contexts/ProgressContext";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 
-type Screen = 'tab' | 'playing' | 'result' | 'story' | 'story-summary'
+type Screen = "tab" | "playing" | "result" | "story" | "story-summary";
 
 function AppContent() {
   const { user, ready, isTelegram, showBackButton, hideBackButton } =
-    useTelegram()
-  const { addCoins, hasItem, consumeItem } = useProgress()
+    useTelegram();
+  const { addCoins, hasItem, consumeItem } = useProgress();
   // "Заморозка стрика" из инвентаря магазина защищает именно этот, видимый
   // пользователю стрик (а не отдельный счётчик визитов внутри ProgressContext).
   const hasStreakFreeze = useCallback(
-    () => hasItem('streak_freeze'),
+    () => hasItem("streak_freeze"),
     [hasItem],
-  )
+  );
   const consumeStreakFreeze = useCallback(
-    () => consumeItem('streak_freeze'),
+    () => consumeItem("streak_freeze"),
     [consumeItem],
-  )
+  );
   const { progress, setProgress, countdown } = useStreak(
     hasStreakFreeze,
     consumeStreakFreeze,
-  )
+  );
   const { serverStreak, markCompleted } = useServerSync(
     user?.first_name,
     user?.username,
-  )
+  );
 
-  const [activeTab, setActiveTab] = useState<TabId>('today')
-  const [screen, setScreen] = useState<Screen>('tab')
+  const [activeTab, setActiveTab] = useState<TabId>("today");
+  const [screen, setScreen] = useState<Screen>("tab");
   const [activeDilemma, setActiveDilemma] = useState<Dilemma>(() =>
     getTodayDilemma(),
-  )
-  const [playMode, setPlayMode] = useState<PlayMode>('normal')
-  const [result, setResult] = useState<DilemmaResult | null>(null)
-  const [resultMode, setResultMode] = useState<PlayMode>('normal')
-  const [coinsEarned, setCoinsEarned] = useState(0)
-  const [argSubmitted, setArgSubmitted] = useState(false)
-  const [activeStory, setActiveStory] = useState<Story | null>(null)
+  );
+  const [playMode, setPlayMode] = useState<PlayMode>("normal");
+  const [result, setResult] = useState<DilemmaResult | null>(null);
+  const [resultMode, setResultMode] = useState<PlayMode>("normal");
+  const [coinsEarned, setCoinsEarned] = useState(0);
+  const [echo, setEcho] = useState<{
+    pastLabel: string;
+    currentLabel: string;
+    daysAgo: number;
+    sameChoice: boolean;
+  } | null>(null);
+  const [argSubmitted, setArgSubmitted] = useState(false);
+  const [activeStory, setActiveStory] = useState<Story | null>(null);
 
-  const todayDilemma = getTodayDilemma()
-  const completedToday = isDilemmaCompletedToday(todayDilemma.slug)
+  const todayDilemma = getTodayDilemma();
+  const completedToday = isDilemmaCompletedToday(todayDilemma.slug);
 
   useEffect(() => {
     if (completedToday && !result) {
-      const saved = loadResult(todayDilemma.slug)
-      if (saved) setResult(saved)
+      const saved = loadResult(todayDilemma.slug);
+      if (saved) setResult(saved);
     }
-  }, [completedToday, result, todayDilemma.slug])
+  }, [completedToday, result, todayDilemma.slug]);
 
   useEffect(() => {
     if (result) {
-      setArgSubmitted(hasSubmittedArgument(activeDilemma.slug))
+      setArgSubmitted(hasSubmittedArgument(activeDilemma.slug));
     }
-  }, [result, activeDilemma.slug])
+  }, [result, activeDilemma.slug]);
 
   // Нативная кнопка "Назад" Telegram — показываем на любом экране, где мы
   // не в основных вкладках. У экрана "playing" (прохождение дилеммы) до
@@ -96,110 +104,133 @@ function AppContent() {
   // хуки нельзя вызывать условно, иначе React теряет счёт хуков между
   // рендерами ("Rendered more hooks than during the previous render").
   useEffect(() => {
-    if (screen === 'tab') {
-      hideBackButton()
-      return
+    if (screen === "tab") {
+      hideBackButton();
+      return;
     }
 
-    if (screen === 'story-summary') {
-      showBackButton(() => setScreen('story'))
-    } else if (screen === 'story') {
-      showBackButton(handleCloseStory)
+    if (screen === "story-summary") {
+      showBackButton(() => setScreen("story"));
+    } else if (screen === "story") {
+      showBackButton(handleCloseStory);
     } else {
       // 'playing' и 'result'
-      showBackButton(() => setScreen('tab'))
+      showBackButton(() => setScreen("tab"));
     }
 
-    return () => hideBackButton()
-  }, [screen, showBackButton, hideBackButton])
+    return () => hideBackButton();
+  }, [screen, showBackButton, hideBackButton]);
 
   if (!ready) {
     return (
       <div className="app-shell flex min-h-screen items-center justify-center">
         <div className="text-sm opacity-50">Загрузка…</div>
       </div>
-    )
+    );
   }
 
-  function handleStartToday(mode: PlayMode = 'normal') {
-    setActiveDilemma(todayDilemma)
-    setPlayMode(mode)
-    setScreen('playing')
+  function handleStartToday(mode: PlayMode = "normal") {
+    setActiveDilemma(todayDilemma);
+    setPlayMode(mode);
+    setScreen("playing");
   }
 
   function handleStartImpulse() {
-    setPlayMode('impulse')
-    setScreen('playing')
+    setPlayMode("impulse");
+    setScreen("playing");
   }
 
   function handleOpenFromArchive(dilemma: Dilemma) {
-    setActiveDilemma(dilemma)
-    setPlayMode('normal')
-    setScreen('playing')
+    setActiveDilemma(dilemma);
+    setPlayMode("normal");
+    setScreen("playing");
   }
 
   function handleOpenStory(story: Story) {
-    setActiveStory(story)
-    setScreen('story')
+    setActiveStory(story);
+    setScreen("story");
   }
 
   function handleCloseStory() {
-    setActiveStory(null)
-    setScreen('tab')
+    setActiveStory(null);
+    setScreen("tab");
   }
 
   async function handleComplete(finalOption: string, mode: PlayMode) {
     // Снимаем "было ли это уже пройдено" ДО записи — и для стрика,
     // и отдельно для начисления монет (чтобы нельзя было накрутить их,
     // повторно проходя уже пройденную дилемму).
-    const wasCompletedToday = isDilemmaCompletedToday(activeDilemma.slug)
+    const wasCompletedToday = isDilemmaCompletedToday(activeDilemma.slug);
     const hadCompletedSlugBefore = Boolean(
       progress.completedDilemmas[activeDilemma.slug],
-    )
+    );
     const hadImpulsedSlugBefore = progress.impulseDilemmas.includes(
       activeDilemma.slug,
-    )
-    const isToday = activeDilemma.slug === todayDilemma.slug
+    );
+    const isToday = activeDilemma.slug === todayDilemma.slug;
 
-    recordLocalSession(activeDilemma.slug, finalOption)
-    const updated = markDilemmaCompleted(activeDilemma.slug, mode, isToday)
-    setProgress(updated)
+    // "Эхо" — сравнение с собственным прошлым выбором. Снимаем ДО записи
+    // новой сессии, иначе getPastSession() вернёт то, что мы только что
+    // сами записали, вместо настоящей истории.
+    const pastSession = getPastSession(activeDilemma.slug);
+    const daysAgo = pastSession
+      ? Math.round((Date.now() - pastSession.finishedAt) / 86400000)
+      : 0;
+    // Не показываем "эхо", если это буквально тот же цикл ротации дилемм —
+    // иначе "ты уже отвечал на это" будет всплывать каждые 4 дня и потеряет
+    // смысл. Порог в неделю — минимально осмысленный разрыв во времени.
+    if (pastSession && daysAgo >= 7) {
+      const map = activeDilemma.scenario.final_stats_map;
+      setEcho({
+        pastLabel: map[pastSession.finalOption] ?? pastSession.finalOption,
+        currentLabel: map[finalOption] ?? finalOption,
+        daysAgo,
+        sameChoice: pastSession.finalOption === finalOption,
+      });
+    } else {
+      setEcho(null);
+    }
+
+    recordLocalSession(activeDilemma.slug, finalOption);
+    recordDecision(activeDilemma.slug, finalOption);
+    const updated = markDilemmaCompleted(activeDilemma.slug, mode, isToday);
+    setProgress(updated);
 
     // ─── Начисление монет ───
     // Монеты начисляются только за НОВЫЙ прогресс: за сегодняшнюю дилемму
     // (по одному разу в день) или за дилемму, пройденную впервые.
     // Повторное прохождение уже пройденной дилеммы монет не даёт —
     // иначе их можно копить бесконечно, просто листая архив по кругу.
-    let earned = 0
-    if (mode === 'impulse') {
-      earned = hadImpulsedSlugBefore ? 0 : 20
+    let earned = 0;
+    if (mode === "impulse") {
+      earned = hadImpulsedSlugBefore ? 0 : 20;
     } else if (isToday && !wasCompletedToday) {
-      earned = 25
+      earned = 25;
     } else if (!hadCompletedSlugBefore) {
-      earned = 15
+      earned = 15;
     }
 
-    if (earned > 0) addCoins(earned)
-    setCoinsEarned(earned)
+    if (earned > 0) addCoins(earned);
+    setCoinsEarned(earned);
 
-    const r = getMockResult(activeDilemma, finalOption)
-    if (isToday && mode === 'normal') {
-      saveResult(todayDilemma.slug, r)
+    const r = getMockResult(activeDilemma, finalOption);
+    if (isToday && mode === "normal") {
+      saveResult(todayDilemma.slug, r);
     }
 
-    if (isToday && mode === 'normal') {
+    if (isToday && mode === "normal") {
       markCompleted(activeDilemma.slug).catch((err) => {
-        console.warn('Не удалось синхронизировать с сервером:', err)
-      })
+        console.warn("Не удалось синхронизировать с сервером:", err);
+      });
     }
 
-    setResult(r)
-    setResultMode(mode)
-    setScreen('result')
+    setResult(r);
+    setResultMode(mode);
+    setScreen("result");
   }
 
   function handleBackToTabs() {
-    setScreen('tab')
+    setScreen("tab");
   }
 
   // Единая точка смены вкладки — используется и мобильным BottomNav, и
@@ -208,57 +239,57 @@ function AppContent() {
   // вкладке в сайдбаре менял бы только activeTab, а видимый контент
   // оставался бы залипшим на прежнем экране.
   function handleTabChange(tab: TabId) {
-    setActiveTab(tab)
-    setScreen('tab')
+    setActiveTab(tab);
+    setScreen("tab");
   }
 
   async function handleReset() {
     const confirmed = await confirmDialog(
-      'Сбросить прогресс дилеммы? Стрик тоже обнулится.',
-    )
-    if (!confirmed) return
-    localStorage.removeItem('daily-dilemma-progress-v1')
-    localStorage.removeItem('daily-dilemma-last-result-v1')
-    localStorage.removeItem('daily-dilemma-mock-stats-v1')
-    localStorage.removeItem('daily-dilemma-anonymous-args-v1')
-    localStorage.removeItem('daily-dilemma-story-wrong-error')
-    window.location.reload()
+      "Сбросить прогресс дилеммы? Стрик тоже обнулится.",
+    );
+    if (!confirmed) return;
+    localStorage.removeItem("daily-dilemma-progress-v1");
+    localStorage.removeItem("daily-dilemma-last-result-v1");
+    localStorage.removeItem("daily-dilemma-mock-stats-v1");
+    localStorage.removeItem("daily-dilemma-anonymous-args-v1");
+    localStorage.removeItem("daily-dilemma-story-wrong-error");
+    window.location.reload();
   }
 
   function handleSubmitArgument(text: string) {
-    submitArgument(activeDilemma.slug, text)
-    setArgSubmitted(true)
+    submitArgument(activeDilemma.slug, text);
+    setArgSubmitted(true);
   }
 
   const mirror = result
     ? getMinorityMirror(activeDilemma.slug, result.your_choice)
-    : null
+    : null;
 
   const showMirror =
     mirror !== null &&
     result !== null &&
-    result.match_percent <= mirror.maxPercent
+    result.match_percent <= mirror.maxPercent;
 
   const opponentArguments = result
     ? getOpponentArguments(activeDilemma.slug, result.your_choice)
-    : []
+    : [];
 
   const displayStreak = Math.max(
     progress.currentStreak,
     serverStreak?.streak ?? 0,
-  )
-  const displayLongest = Math.max(progress.longestStreak, displayStreak)
+  );
+  const displayLongest = Math.max(progress.longestStreak, displayStreak);
 
   return (
     <div className="app-shell">
-      <div className="mx-auto flex w-full max-w-6xl md:gap-6">
+      <div className="mx-auto flex w-full max-w-7xl md:gap-8 md:px-6">
         <SidebarNav activeTab={activeTab} onTabChange={handleTabChange} />
 
         <main className="flex min-h-screen w-full flex-1 flex-col">
-          <div className="safe-top mx-auto flex w-full max-w-md flex-col px-4 pb-28 pt-4 md:max-w-2xl md:pb-10">
-            {screen === 'tab' && activeTab === 'today' && (
+          <div className="safe-top mx-auto flex w-full max-w-md flex-col px-4 pb-28 pt-4 md:max-w-3xl md:pb-10 md:pt-8 md:text-[15px] lg:max-w-4xl">
+            {screen === "tab" && activeTab === "today" && (
               <header className="mb-6 flex items-start justify-between gap-3 md:hidden">
-                <div className="flex flex-col">
+                <div className="flex min-w-0 flex-col">
                   <h1 className="text-2xl font-bold">Дилемма дня</h1>
                   <p className="mt-1 text-sm opacity-60">
                     Один выбор в день. Живая статистика.
@@ -271,22 +302,22 @@ function AppContent() {
               </header>
             )}
 
-            {screen === 'tab' && activeTab === 'today' && (
+            {screen === "tab" && activeTab === "today" && (
               <div className="mb-4">
                 <DailyCheckIn />
               </div>
             )}
 
-            {screen === 'tab' && activeTab === 'today' && !completedToday && (
+            {screen === "tab" && activeTab === "today" && !completedToday && (
               <div className="flex flex-col gap-4">
                 <div
                   className="rounded-2xl p-5"
-                  style={{ backgroundColor: 'var(--app-secondary)' }}
+                  style={{ backgroundColor: "var(--app-secondary)" }}
                 >
                   <p className="text-[10px] font-semibold uppercase tracking-wide opacity-50">
                     {user
-                      ? `Привет, ${user.first_name ?? 'гость'}`
-                      : 'Отладка в браузере'}
+                      ? `Привет, ${user.first_name ?? "гость"}`
+                      : "Отладка в браузере"}
                   </p>
                   <p className="mt-3 text-base font-semibold leading-snug">
                     {todayDilemma.title}
@@ -298,11 +329,11 @@ function AppContent() {
 
                 <button
                   type="button"
-                  onClick={() => handleStartToday('normal')}
+                  onClick={() => handleStartToday("normal")}
                   className="w-full rounded-2xl py-3.5 text-sm font-semibold transition-opacity active:opacity-80"
                   style={{
-                    backgroundColor: 'var(--app-accent)',
-                    color: 'var(--app-accent-text)',
+                    backgroundColor: "var(--app-accent)",
+                    color: "var(--app-accent-text)",
                   }}
                 >
                   Пройти дилемму
@@ -310,23 +341,23 @@ function AppContent() {
 
                 <button
                   type="button"
-                  onClick={() => handleStartToday('impulse')}
+                  onClick={() => handleStartToday("impulse")}
                   className="w-full rounded-2xl py-3 text-sm font-semibold transition-opacity active:opacity-80"
                   style={{
-                    backgroundColor: 'var(--app-secondary)',
-                    color: 'var(--app-text)',
+                    backgroundColor: "var(--app-secondary)",
+                    color: "var(--app-text)",
                   }}
                 >
                   ⚡ Пройти в режиме импульса
                 </button>
 
                 <p className="text-center text-[11px] opacity-40">
-                  {isTelegram ? 'Telegram Mini App' : 'Веб-режим (отладка)'}
+                  {isTelegram ? "Telegram Mini App" : "Веб-режим (отладка)"}
                 </p>
               </div>
             )}
 
-            {screen === 'tab' && activeTab === 'today' && completedToday && (
+            {screen === "tab" && activeTab === "today" && completedToday && (
               <div className="flex flex-col gap-4">
                 <CompletedToday countdown={countdown} />
 
@@ -334,7 +365,7 @@ function AppContent() {
                   <>
                     <div
                       className="rounded-2xl p-5 text-center"
-                      style={{ backgroundColor: 'var(--app-secondary)' }}
+                      style={{ backgroundColor: "var(--app-secondary)" }}
                     >
                       <p className="text-[10px] font-semibold uppercase tracking-wide opacity-50">
                         Твой выбор
@@ -352,18 +383,23 @@ function AppContent() {
                       onClick={handleStartImpulse}
                       className="w-full rounded-2xl py-3 text-sm font-semibold transition-opacity active:opacity-80"
                       style={{
-                        backgroundColor: 'var(--app-secondary)',
-                        color: 'var(--app-text)',
+                        backgroundColor: "var(--app-secondary)",
+                        color: "var(--app-text)",
                       }}
                     >
                       ⚡ Пройти в режиме импульса
                     </button>
 
-                    {showMirror && mirror && <MinorityMirror mirror={mirror} percent={result.match_percent} />}
+                    {showMirror && mirror && (
+                      <MinorityMirror
+                        mirror={mirror}
+                        percent={result.match_percent}
+                      />
+                    )}
 
                     <div
                       className="rounded-2xl p-4"
-                      style={{ backgroundColor: 'var(--app-secondary)' }}
+                      style={{ backgroundColor: "var(--app-secondary)" }}
                     >
                       <p className="mb-3 text-[10px] font-semibold uppercase tracking-wide opacity-50">
                         Как поступили другие
@@ -374,11 +410,11 @@ function AppContent() {
                           .map(([optionId, count]) => {
                             const label =
                               todayDilemma.scenario.final_stats_map[optionId] ??
-                              optionId
+                              optionId;
                             const percent = Math.round(
                               (count / result.total_players) * 100,
-                            )
-                            const isYours = optionId === result.your_choice
+                            );
+                            const isYours = optionId === result.your_choice;
                             return (
                               <div
                                 key={optionId}
@@ -387,17 +423,17 @@ function AppContent() {
                                 <div className="flex items-baseline justify-between">
                                   <span
                                     className={`text-xs ${
-                                      isYours ? 'font-semibold' : 'opacity-70'
+                                      isYours ? "font-semibold" : "opacity-70"
                                     }`}
                                   >
                                     {label}
-                                    {isYours ? ' · ты' : ''}
+                                    {isYours ? " · ты" : ""}
                                   </span>
                                   <span
                                     className="text-xs font-bold tabular-nums"
                                     style={{
                                       color: isYours
-                                        ? 'var(--app-accent)'
+                                        ? "var(--app-accent)"
                                         : undefined,
                                     }}
                                   >
@@ -407,7 +443,7 @@ function AppContent() {
                                 <div
                                   className="h-1.5 w-full overflow-hidden rounded-full"
                                   style={{
-                                    backgroundColor: 'rgba(128,128,128,0.15)',
+                                    backgroundColor: "rgba(128,128,128,0.15)",
                                   }}
                                 >
                                   <div
@@ -415,13 +451,13 @@ function AppContent() {
                                     style={{
                                       width: `${percent}%`,
                                       backgroundColor: isYours
-                                        ? 'var(--app-accent)'
-                                        : 'rgba(128,128,128,0.6)',
+                                        ? "var(--app-accent)"
+                                        : "rgba(128,128,128,0.6)",
                                     }}
                                   />
                                 </div>
                               </div>
-                            )
+                            );
                           })}
                       </div>
                     </div>
@@ -444,8 +480,8 @@ function AppContent() {
                   onClick={handleReset}
                   className="mt-2 w-full rounded-2xl py-3 text-xs font-semibold opacity-40 transition-opacity active:opacity-60"
                   style={{
-                    backgroundColor: 'transparent',
-                    color: 'var(--app-text)',
+                    backgroundColor: "transparent",
+                    color: "var(--app-text)",
                   }}
                 >
                   Сбросить прогресс (для теста)
@@ -453,77 +489,104 @@ function AppContent() {
               </div>
             )}
 
-            {screen === 'tab' && activeTab === 'archive' && (
+            {screen === "tab" && activeTab === "archive" && (
               <ArchivePage onOpenDilemma={handleOpenFromArchive} />
             )}
 
-            {screen === 'tab' && activeTab === 'stories' && (
+            {screen === "tab" && activeTab === "stories" && (
               <StoriesPage onOpenStory={handleOpenStory} />
             )}
 
-            {screen === 'tab' && activeTab === 'profile' && <ProfilePage />}
+            {screen === "tab" && activeTab === "profile" && <ProfilePage />}
 
-            {screen === 'tab' && activeTab === 'about' && <AboutPage />}
+            {screen === "tab" && activeTab === "about" && <AboutPage />}
 
-            {screen === 'playing' && (
+            {screen === "playing" && (
               <DilemmaPlayer
                 dilemma={activeDilemma}
                 mode={playMode}
                 onComplete={handleComplete}
                 onClose={handleBackToTabs}
-                hasSecondChance={() => hasItem('second_chance')}
-                consumeSecondChance={() => consumeItem('second_chance')}
+                hasSecondChance={() => hasItem("second_chance")}
+                consumeSecondChance={() => consumeItem("second_chance")}
               />
             )}
 
-            {screen === 'story' && activeStory && (
+            {screen === "story" && activeStory && (
               <StoryPlayer
                 story={activeStory}
                 onClose={handleCloseStory}
-                onShowSummary={() => setScreen('story-summary')}
+                onShowSummary={() => setScreen("story-summary")}
               />
             )}
 
-            {screen === 'story-summary' && activeStory && (
+            {screen === "story-summary" && activeStory && (
               <StorySummary
                 story={activeStory}
-                onClose={() => setScreen('story')}
+                onClose={() => setScreen("story")}
                 onReset={async () => {
                   const confirmed = await confirmDialog(
-                    'Сбросить прогресс этой истории?',
-                  )
-                  if (!confirmed) return
+                    "Сбросить прогресс этой истории?",
+                  );
+                  if (!confirmed) return;
                   localStorage.removeItem(
                     `daily-dilemma-story-${activeStory.slug}`,
-                  )
-                  setScreen('story')
-                  window.location.reload()
+                  );
+                  setScreen("story");
+                  window.location.reload();
                 }}
               />
             )}
 
-            {screen === 'result' && result && (
+            {screen === "result" && result && (
               <div className="flex flex-col gap-4">
                 {coinsEarned > 0 && (
                   <div
                     className="flex items-center justify-center gap-1.5 rounded-2xl p-3 text-sm font-semibold"
                     style={{
-                      backgroundColor: 'rgba(250, 204, 21, 0.15)',
-                      color: '#b45309',
+                      backgroundColor: "rgba(250, 204, 21, 0.15)",
+                      color: "#b45309",
                     }}
                   >
                     🪙 +{coinsEarned} монет
                   </div>
                 )}
 
-                {resultMode === 'impulse' && (
+                {echo && (
+                  <div
+                    className="flex flex-col gap-1.5 rounded-2xl p-4"
+                    style={{
+                      backgroundColor: "rgba(74, 158, 255, 0.08)",
+                      border: "1px solid rgba(74, 158, 255, 0.25)",
+                    }}
+                  >
+                    <span
+                      className="text-[10px] font-bold uppercase tracking-wide"
+                      style={{ color: "#4a9eff" }}
+                    >
+                      🔁 Эхо · {echo.daysAgo} дн. назад
+                    </span>
+                    <p className="text-sm leading-relaxed opacity-90">
+                      Ты уже отвечал на это. Тогда:{" "}
+                      <strong>«{echo.pastLabel}»</strong>. Сегодня:{" "}
+                      <strong>«{echo.currentLabel}»</strong>.
+                    </p>
+                    <p className="text-xs opacity-60">
+                      {echo.sameChoice
+                        ? "Выбор не изменился."
+                        : "Ты поступил иначе, чем в прошлый раз."}
+                    </p>
+                  </div>
+                )}
+
+                {resultMode === "impulse" && (
                   <div
                     className="flex items-center gap-2 rounded-2xl p-3"
-                    style={{ backgroundColor: 'rgba(245, 158, 11, 0.12)' }}
+                    style={{ backgroundColor: "rgba(245, 158, 11, 0.12)" }}
                   >
                     <span
                       className="text-[11px] font-semibold uppercase tracking-wide"
-                      style={{ color: '#f59e0b' }}
+                      style={{ color: "#f59e0b" }}
                     >
                       ⚡ Импульсный режим
                     </span>
@@ -532,7 +595,7 @@ function AppContent() {
 
                 <div
                   className="rounded-2xl p-5 text-center"
-                  style={{ backgroundColor: 'var(--app-secondary)' }}
+                  style={{ backgroundColor: "var(--app-secondary)" }}
                 >
                   <p className="text-[10px] font-semibold uppercase tracking-wide opacity-50">
                     Твой выбор
@@ -545,11 +608,16 @@ function AppContent() {
                   </p>
                 </div>
 
-                {showMirror && mirror && <MinorityMirror mirror={mirror} percent={result.match_percent} />}
+                {showMirror && mirror && (
+                  <MinorityMirror
+                    mirror={mirror}
+                    percent={result.match_percent}
+                  />
+                )}
 
                 <div
                   className="rounded-2xl p-4"
-                  style={{ backgroundColor: 'var(--app-secondary)' }}
+                  style={{ backgroundColor: "var(--app-secondary)" }}
                 >
                   <p className="mb-3 text-[10px] font-semibold uppercase tracking-wide opacity-50">
                     Как поступили другие
@@ -560,27 +628,27 @@ function AppContent() {
                       .map(([optionId, count]) => {
                         const label =
                           activeDilemma.scenario.final_stats_map[optionId] ??
-                          optionId
+                          optionId;
                         const percent = Math.round(
                           (count / result.total_players) * 100,
-                        )
-                        const isYours = optionId === result.your_choice
+                        );
+                        const isYours = optionId === result.your_choice;
                         return (
                           <div key={optionId} className="flex flex-col gap-1">
                             <div className="flex items-baseline justify-between">
                               <span
                                 className={`text-xs ${
-                                  isYours ? 'font-semibold' : 'opacity-70'
+                                  isYours ? "font-semibold" : "opacity-70"
                                 }`}
                               >
                                 {label}
-                                {isYours ? ' · ты' : ''}
+                                {isYours ? " · ты" : ""}
                               </span>
                               <span
                                 className="text-xs font-bold tabular-nums"
                                 style={{
                                   color: isYours
-                                    ? 'var(--app-accent)'
+                                    ? "var(--app-accent)"
                                     : undefined,
                                 }}
                               >
@@ -590,7 +658,7 @@ function AppContent() {
                             <div
                               className="h-1.5 w-full overflow-hidden rounded-full"
                               style={{
-                                backgroundColor: 'rgba(128,128,128,0.15)',
+                                backgroundColor: "rgba(128,128,128,0.15)",
                               }}
                             >
                               <div
@@ -598,13 +666,13 @@ function AppContent() {
                                 style={{
                                   width: `${percent}%`,
                                   backgroundColor: isYours
-                                    ? 'var(--app-accent)'
-                                    : 'rgba(128,128,128,0.6)',
+                                    ? "var(--app-accent)"
+                                    : "rgba(128,128,128,0.6)",
                                 }}
                               />
                             </div>
                           </div>
-                        )
+                        );
                       })}
                   </div>
                 </div>
@@ -625,8 +693,8 @@ function AppContent() {
                   onClick={handleBackToTabs}
                   className="w-full rounded-2xl py-3 text-sm font-semibold transition-opacity active:opacity-80"
                   style={{
-                    backgroundColor: 'var(--app-secondary)',
-                    color: 'var(--app-text)',
+                    backgroundColor: "var(--app-secondary)",
+                    color: "var(--app-text)",
                   }}
                 >
                   На главную
@@ -637,11 +705,11 @@ function AppContent() {
         </main>
       </div>
 
-      {screen === 'tab' && (
+      {screen === "tab" && (
         <BottomNav activeTab={activeTab} onTabChange={handleTabChange} />
       )}
     </div>
-  )
+  );
 }
 
 export default function App() {
@@ -651,5 +719,5 @@ export default function App() {
         <AppContent />
       </ProgressProvider>
     </ErrorBoundary>
-  )
+  );
 }
